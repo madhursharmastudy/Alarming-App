@@ -1,0 +1,6 @@
+{
+  "name": "ForceAlarm",
+  "description": "Uncompromising wake-up alarm with 3-stage progressive challenges including voice recognition, camera photo matching, puzzles, math, and motion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

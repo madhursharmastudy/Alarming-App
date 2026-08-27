@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">ForceAlarm</string>
+    <string name="alarm_ringing_title">WAKE UP NOW!</string>
+    <string name="alarm_ringing_subtitle">Complete your 3-stage challenge to dismiss</string>
+    <string name="start_challenge">Start Challenge</string>
+    <string name="stage_1">Stage 1</string>
+    <string name="stage_2">Stage 2</string>
+    <string name="stage_3">Stage 3</string>
+    <string name="low_difficulty">Low</string>
+    <string name="moderate_difficulty">Moderate</string>
+    <string name="advanced_difficulty">Advanced</string>
+</resources>
