@@ -24,15 +24,15 @@ jobs:
         run: chmod +x gradlew
 
       # --- Restore the signing keystore from a GitHub Secret ---
-      # KEYSTORE_BASE64 is your keystore.jks file encoded as base64 text
-      # (see README-signing.md for how to create/encode it once).
+      # KEYSTORE_BASE64 is your keystore .jks file encoded as base64 text.
+      # build.gradle.kts looks for it at ${rootDir}/my-upload-key.jks by
+      # default (or wherever KEYSTORE_PATH points), so we decode it there.
       - name: Decode signing keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release-key.jks
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > my-upload-key.jks
 
       - name: Build release APK
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
