@@ -18,6 +18,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
