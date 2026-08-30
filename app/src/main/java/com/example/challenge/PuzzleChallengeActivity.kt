@@ -9,17 +9,13 @@ import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Color as AndroidColor
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +25,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,10 +36,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -51,23 +47,35 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.data.ChallengeType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 class PuzzleChallengeActivity : BaseChallengeActivity() {
@@ -86,10 +94,6 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
     // Full reference ImageBitmap
     private val fullImageState = MutableStateFlow<ImageBitmap?>(null)
     val fullImage = fullImageState.asStateFlow()
-
-    // Selected grid index for swapping (null if none selected)
-    private val selectedGridIndexState = MutableStateFlow<Int?>(null)
-    val selectedGridIndex = selectedGridIndexState.asStateFlow()
 
     private val moveCountState = MutableStateFlow(0)
     val moveCount = moveCountState.asStateFlow()
@@ -112,14 +116,12 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
         }
         gridSizeState.value = size
         moveCountState.value = 0
-        selectedGridIndexState.value = null
         initImagePuzzle(stage, size)
     }
 
     override fun onResetToStage1() {
         gridSizeState.value = 2
         moveCountState.value = 0
-        selectedGridIndexState.value = null
         initImagePuzzle(1, 2)
     }
 
@@ -170,30 +172,25 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
         return true
     }
 
-    fun onTileClicked(gridIndex: Int) {
-        val currentSelected = selectedGridIndexState.value
-        if (currentSelected == null) {
-            // First tile selected
-            selectedGridIndexState.value = gridIndex
-        } else if (currentSelected == gridIndex) {
-            // Tapped same tile -> deselect
-            selectedGridIndexState.value = null
-        } else {
-            // Tapped second tile -> swap them!
-            val currentList = tilesState.value.toMutableList()
-            if (currentSelected in currentList.indices && gridIndex in currentList.indices) {
-                val temp = currentList[currentSelected]
-                currentList[currentSelected] = currentList[gridIndex]
-                currentList[gridIndex] = temp
+    fun onTileDropped(fromGridIndex: Int, targetSlot: Int) {
+        val currentList = tilesState.value.toMutableList()
+        val sliceIndex = currentList.getOrNull(fromGridIndex) ?: return
 
-                tilesState.value = currentList
-                moveCountState.value += 1
-                selectedGridIndexState.value = null
+        if (targetSlot == sliceIndex) {
+            // Correct position: swap into targetSlot and lock!
+            val temp = currentList[targetSlot]
+            currentList[targetSlot] = currentList[fromGridIndex]
+            currentList[fromGridIndex] = temp
 
-                if (isSolved(currentList)) {
-                    completeCurrentStage()
-                }
+            tilesState.value = currentList
+            moveCountState.value += 1
+
+            if (isSolved(currentList)) {
+                completeCurrentStage()
             }
+        } else {
+            // Incorrect position drop -> record attempt
+            moveCountState.value += 1
         }
     }
 
@@ -523,11 +520,11 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
         val tilesList by tiles.collectAsState()
         val slices by tileSlices.collectAsState()
         val fullRefImage by fullImage.collectAsState()
-        val selectedIndex by selectedGridIndex.collectAsState()
         val moves by moveCount.collectAsState()
 
-        val solvedCount = tilesList.indices.count { tilesList.getOrNull(it) == it }
         val totalTiles = size * size
+        val solvedCount = tilesList.indices.count { tilesList.getOrNull(it) == it }
+        val cellBounds = remember { mutableStateMapOf<Int, Rect>() }
 
         Column(
             modifier = modifier
@@ -554,21 +551,21 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.SwapHoriz,
+                                imageVector = Icons.Default.TouchApp,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "${size}x${size} Picture Swap",
+                                text = "${size}x${size} Picture Drag & Drop",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                         Text(
-                            text = "Tap 2 tiles to swap until picture is complete",
+                            text = "Drag unlocked tiles to where they belong",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
                         )
@@ -648,17 +645,33 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
                     ) {
                         itemsIndexed(tilesList) { gridIndex, sliceIndex ->
                             val sliceBitmap = slices.getOrNull(sliceIndex)
-                            val isSelected = selectedIndex == gridIndex
                             val isCorrect = sliceIndex == gridIndex
 
                             ImagePuzzleTileItem(
                                 sliceBitmap = sliceBitmap,
                                 gridIndex = gridIndex,
                                 sliceIndex = sliceIndex,
-                                isSelected = isSelected,
                                 isCorrect = isCorrect,
                                 gridSize = size,
-                                onClick = { onTileClicked(gridIndex) }
+                                onPositioned = { rect ->
+                                    cellBounds[gridIndex] = rect
+                                },
+                                findTargetSlot = { dropCenter ->
+                                    val exact = cellBounds.entries.find { (_, rect) -> rect.contains(dropCenter) }?.key
+                                    if (exact != null) {
+                                        exact
+                                    } else {
+                                        cellBounds.entries.minByOrNull { (_, rect) ->
+                                            (rect.center - dropCenter).getDistanceSquared()
+                                        }?.takeIf { (_, rect) ->
+                                            val maxDist = rect.width * 0.9f
+                                            (rect.center - dropCenter).getDistance() <= maxDist
+                                        }?.key
+                                    }
+                                },
+                                onDropped = { targetSlot ->
+                                    onTileDropped(gridIndex, targetSlot)
+                                }
                             )
                         }
                     }
@@ -669,7 +682,7 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (selectedIndex != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -680,28 +693,24 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (selectedIndex != null) {
-                        Icon(
-                            imageVector = Icons.Default.SwapHoriz,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Tile selected! Tap another tile to swap.",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    } else {
-                        Text(
-                            text = "Tap a tile to select it, then tap another to swap",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    Icon(
+                        imageVector = if (solvedCount == totalTiles) Icons.Default.Check else Icons.Default.PanTool,
+                        contentDescription = null,
+                        tint = if (solvedCount == totalTiles) Color(0xFF16A34A) else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (solvedCount == totalTiles) {
+                            "All tiles locked! Stage complete!"
+                        } else {
+                            "Drag a tile to its target spot to lock it in place"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
@@ -713,36 +722,15 @@ fun ImagePuzzleTileItem(
     sliceBitmap: ImageBitmap?,
     gridIndex: Int,
     sliceIndex: Int,
-    isSelected: Boolean,
     isCorrect: Boolean,
     gridSize: Int,
-    onClick: () -> Unit
+    onPositioned: (Rect) -> Unit,
+    findTargetSlot: (Offset) -> Int?,
+    onDropped: (Int) -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = if (isSelected) 1.05f else 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(400),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "tilePulse"
-    )
-
-    val borderColor by animateColorAsState(
-        targetValue = when {
-            isSelected -> Color(0xFFFACC15) // Bright Gold/Yellow for selected
-            isCorrect -> Color(0xFF22C55E).copy(alpha = 0.85f) // Green indicator
-            else -> Color.White.copy(alpha = 0.35f)
-        },
-        label = "tileBorder"
-    )
-
-    val borderWidth = when {
-        isSelected -> 3.5.dp
-        isCorrect -> 2.dp
-        else -> 1.5.dp
-    }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var isDragging by remember { mutableStateOf(false) }
+    var itemBounds by remember { mutableStateOf(Rect.Zero) }
 
     val cornerRadius = when (gridSize) {
         2 -> 14.dp
@@ -750,14 +738,79 @@ fun ImagePuzzleTileItem(
         else -> 8.dp
     }
 
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isDragging) 1.08f else 1.0f,
+        animationSpec = spring(),
+        label = "tileScale"
+    )
+
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            isDragging -> Color(0xFFFACC15) // Bright Gold while dragging
+            isCorrect -> Color(0xFF22C55E).copy(alpha = 0.9f) // Green when locked
+            else -> Color.White.copy(alpha = 0.35f)
+        },
+        label = "tileBorder"
+    )
+
+    val borderWidth = when {
+        isDragging -> 3.5.dp
+        isCorrect -> 2.5.dp
+        else -> 1.5.dp
+    }
+
+    val dragModifier = if (!isCorrect) {
+        Modifier.pointerInput(gridIndex, sliceIndex, isCorrect) {
+            detectDragGestures(
+                onDragStart = {
+                    isDragging = true
+                    dragOffset = Offset.Zero
+                },
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    dragOffset += dragAmount
+                },
+                onDragEnd = {
+                    val dropCenter = itemBounds.center + dragOffset
+                    val targetSlot = findTargetSlot(dropCenter)
+                    if (targetSlot != null) {
+                        onDropped(targetSlot)
+                    }
+                    isDragging = false
+                    dragOffset = Offset.Zero
+                },
+                onDragCancel = {
+                    isDragging = false
+                    dragOffset = Offset.Zero
+                }
+            )
+        }
+    } else {
+        Modifier
+    }
+
     Box(
         modifier = Modifier
+            .zIndex(if (isDragging) 100f else 1f)
+            .offset {
+                if (isDragging) {
+                    IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt())
+                } else {
+                    IntOffset.Zero
+                }
+            }
+            .scale(animatedScale)
+            .shadow(if (isDragging) 16.dp else 0.dp, RoundedCornerShape(cornerRadius))
             .aspectRatio(1f)
-            .scale(if (isSelected) pulseScale else 1.0f)
+            .onGloballyPositioned { coordinates ->
+                val bounds = coordinates.boundsInParent()
+                itemBounds = bounds
+                onPositioned(bounds)
+            }
             .clip(RoundedCornerShape(cornerRadius))
             .background(Color(0xFF1E293B))
             .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
-            .clickable { onClick() }
+            .then(dragModifier)
             .testTag("puzzle_tile_$gridIndex"),
         contentAlignment = Alignment.Center
     ) {
@@ -770,47 +823,31 @@ fun ImagePuzzleTileItem(
             )
         }
 
-        // Selection Overlay
-        if (isSelected) {
+        // Active Dragging Glow Overlay
+        if (isDragging) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFFACC15).copy(alpha = 0.25f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFACC15)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SwapHoriz,
-                        contentDescription = "Selected",
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+                    .background(Color(0xFFFACC15).copy(alpha = 0.15f))
+            )
         }
 
-        // Subtle green checkmark badge in corner when correctly placed
-        if (isCorrect && !isSelected) {
+        // Green Checkmark & Lock Badge when correctly placed
+        if (isCorrect) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(4.dp)
-                    .size(if (gridSize <= 3) 18.dp else 14.dp)
+                    .size(if (gridSize <= 3) 20.dp else 16.dp)
                     .clip(CircleShape)
                     .background(Color(0xFF22C55E)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Check,
-                    contentDescription = "Correct",
+                    contentDescription = "Locked",
                     tint = Color.White,
-                    modifier = Modifier.size(if (gridSize <= 3) 12.dp else 9.dp)
+                    modifier = Modifier.size(if (gridSize <= 3) 14.dp else 10.dp)
                 )
             }
         }
