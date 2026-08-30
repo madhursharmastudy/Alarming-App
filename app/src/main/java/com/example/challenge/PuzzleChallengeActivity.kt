@@ -1,6 +1,22 @@
 package com.example.challenge
 
-import android.os.Bundle
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RadialGradient
+import android.graphics.RectF
+import android.graphics.Shader
+import android.graphics.Color as AndroidColor
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,14 +31,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -34,7 +54,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,8 +75,21 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
     private val gridSizeState = MutableStateFlow(2) // 2 for Low (2x2), 3 for Mod (3x3), 4 for Adv (4x4)
     val gridSize = gridSizeState.asStateFlow()
 
+    // Current tile permutation: list of slice indices currently sitting in grid positions 0..N-1
     private val tilesState = MutableStateFlow<List<Int>>(emptyList())
     val tiles = tilesState.asStateFlow()
+
+    // Sliced ImageBitmaps for each slice index 0..N-1
+    private val tileSlicesState = MutableStateFlow<List<ImageBitmap>>(emptyList())
+    val tileSlices = tileSlicesState.asStateFlow()
+
+    // Full reference ImageBitmap
+    private val fullImageState = MutableStateFlow<ImageBitmap?>(null)
+    val fullImage = fullImageState.asStateFlow()
+
+    // Selected grid index for swapping (null if none selected)
+    private val selectedGridIndexState = MutableStateFlow<Int?>(null)
+    val selectedGridIndex = selectedGridIndexState.asStateFlow()
 
     private val moveCountState = MutableStateFlow(0)
     val moveCount = moveCountState.asStateFlow()
@@ -74,115 +112,431 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
         }
         gridSizeState.value = size
         moveCountState.value = 0
-        initPuzzle(size)
+        selectedGridIndexState.value = null
+        initImagePuzzle(stage, size)
     }
 
     override fun onResetToStage1() {
         gridSizeState.value = 2
         moveCountState.value = 0
-        initPuzzle(2)
+        selectedGridIndexState.value = null
+        initImagePuzzle(1, 2)
     }
 
-    private fun initPuzzle(size: Int) {
-        val totalTiles = size * size
-        // 0 represents blank tile, 1..(totalTiles - 1) represent numbered tiles
-        var list = (1 until totalTiles).toList() + listOf(0)
+    private fun initImagePuzzle(stage: Int, size: Int) {
+        // Generate high-contrast bold morning illustration for this stage
+        val sourceBitmap = createHighContrastArtwork(stage)
+        fullImageState.value = sourceBitmap.asImageBitmap()
 
-        // Shuffle by making valid random moves from solved state to guarantee solvability
-        var blankIndex = totalTiles - 1
-        val movesToShuffle = when (size) {
-            2 -> 8
-            3 -> 20
-            else -> 35
-        }
+        // Slice into size x size grid tiles
+        val slices = sliceBitmap(sourceBitmap, size)
+        tileSlicesState.value = slices.map { it.asImageBitmap() }
 
-        val mutable = list.toMutableList()
-        var lastMovedIndex = -1
-
-        for (i in 0 until movesToShuffle) {
-            val neighbors = getValidNeighbors(blankIndex, size).filter { it != lastMovedIndex }
-            if (neighbors.isNotEmpty()) {
-                val chosen = neighbors.random()
-                mutable[blankIndex] = mutable[chosen]
-                mutable[chosen] = 0
-                lastMovedIndex = blankIndex
-                blankIndex = chosen
-            }
-        }
-
-        // If by chance it is already solved, make 1 swap
-        if (isSolved(mutable, size)) {
-            val neighbors = getValidNeighbors(blankIndex, size)
-            if (neighbors.isNotEmpty()) {
-                val chosen = neighbors.first()
-                mutable[blankIndex] = mutable[chosen]
-                mutable[chosen] = 0
-            }
-        }
-
-        tilesState.value = mutable
-    }
-
-    private fun getValidNeighbors(index: Int, size: Int): List<Int> {
-        val row = index / size
-        val col = index % size
-        val neighbors = mutableListOf<Int>()
-
-        if (row > 0) neighbors.add((row - 1) * size + col) // Up
-        if (row < size - 1) neighbors.add((row + 1) * size + col) // Down
-        if (col > 0) neighbors.add(row * size + (col - 1)) // Left
-        if (col < size - 1) neighbors.add(row * size + (col + 1)) // Right
-
-        return neighbors
-    }
-
-    fun onTileClicked(index: Int) {
-        val size = gridSizeState.value
-        val list = tilesState.value.toMutableList()
-        val blankIndex = list.indexOf(0)
-
-        if (blankIndex != -1 && isAdjacent(index, blankIndex, size)) {
-            list[blankIndex] = list[index]
-            list[index] = 0
-            tilesState.value = list
-            moveCountState.value += 1
-
-            if (isSolved(list, size)) {
-                completeCurrentStage()
-            }
-        }
-    }
-
-    private fun isAdjacent(i1: Int, i2: Int, size: Int): Boolean {
-        val r1 = i1 / size
-        val c1 = i1 % size
-        val r2 = i2 / size
-        val c2 = i2 % size
-        return (kotlin.math.abs(r1 - r2) + kotlin.math.abs(c1 - c2)) == 1
-    }
-
-    private fun isSolved(list: List<Int>, size: Int): Boolean {
+        // Generate shuffled order (guaranteed not solved initially)
         val total = size * size
-        for (i in 0 until total - 1) {
-            if (list[i] != i + 1) return false
+        val list = (0 until total).toMutableList()
+        do {
+            list.shuffle(Random(System.currentTimeMillis() + Random.nextLong()))
+        } while (isSolved(list))
+
+        tilesState.value = list
+    }
+
+    private fun sliceBitmap(source: Bitmap, size: Int): List<Bitmap> {
+        val pieceWidth = source.width / size
+        val pieceHeight = source.height / size
+        val slices = mutableListOf<Bitmap>()
+
+        for (row in 0 until size) {
+            for (col in 0 until size) {
+                val slice = Bitmap.createBitmap(
+                    source,
+                    col * pieceWidth,
+                    row * pieceHeight,
+                    pieceWidth,
+                    pieceHeight
+                )
+                slices.add(slice)
+            }
         }
-        return list[total - 1] == 0
+        return slices
+    }
+
+    private fun isSolved(list: List<Int>): Boolean {
+        if (list.isEmpty()) return false
+        for (i in list.indices) {
+            if (list[i] != i) return false
+        }
+        return true
+    }
+
+    fun onTileClicked(gridIndex: Int) {
+        val currentSelected = selectedGridIndexState.value
+        if (currentSelected == null) {
+            // First tile selected
+            selectedGridIndexState.value = gridIndex
+        } else if (currentSelected == gridIndex) {
+            // Tapped same tile -> deselect
+            selectedGridIndexState.value = null
+        } else {
+            // Tapped second tile -> swap them!
+            val currentList = tilesState.value.toMutableList()
+            if (currentSelected in currentList.indices && gridIndex in currentList.indices) {
+                val temp = currentList[currentSelected]
+                currentList[currentSelected] = currentList[gridIndex]
+                currentList[gridIndex] = temp
+
+                tilesState.value = currentList
+                moveCountState.value += 1
+                selectedGridIndexState.value = null
+
+                if (isSolved(currentList)) {
+                    completeCurrentStage()
+                }
+            }
+        }
+    }
+
+    /**
+     * Creates vibrant, bold, high-contrast morning artworks tailored for blurry morning vision.
+     */
+    private fun createHighContrastArtwork(stage: Int): Bitmap {
+        val sizePx = 600
+        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        when (stage) {
+            1 -> {
+                // Stage 1 (2x2): "Ringing Alarm & Radiant Sun"
+                // Background Gradient
+                val bgGradient = LinearGradient(
+                    0f, 0f, sizePx.toFloat(), sizePx.toFloat(),
+                    intArrayOf(
+                        AndroidColor.rgb(15, 23, 42),  // Deep Slate Navy
+                        AndroidColor.rgb(88, 28, 135), // Royal Purple
+                        AndroidColor.rgb(180, 83, 9)   // Warm Amber
+                    ),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+                paint.shader = bgGradient
+                canvas.drawRect(0f, 0f, sizePx.toFloat(), sizePx.toFloat(), paint)
+                paint.shader = null
+
+                // Radiant Sun Rays (distinct quadrants)
+                paint.color = AndroidColor.argb(70, 255, 215, 0)
+                paint.strokeWidth = 24f
+                paint.style = Paint.Style.STROKE
+                for (angle in 0 until 360 step 30) {
+                    val rad = Math.toRadians(angle.toDouble())
+                    val cx = sizePx / 2f
+                    val cy = sizePx / 2f
+                    val x2 = cx + (260 * Math.cos(rad)).toFloat()
+                    val y2 = cy + (260 * Math.sin(rad)).toFloat()
+                    canvas.drawLine(cx, cy, x2, y2, paint)
+                }
+
+                // Bright Glowing Sun Disc
+                paint.style = Paint.Style.FILL
+                val sunGradient = RadialGradient(
+                    sizePx / 2f, sizePx / 2f, 180f,
+                    AndroidColor.rgb(255, 230, 0),
+                    AndroidColor.rgb(249, 115, 22),
+                    Shader.TileMode.CLAMP
+                )
+                paint.shader = sunGradient
+                canvas.drawCircle(sizePx / 2f, sizePx / 2f, 160f, paint)
+                paint.shader = null
+
+                // Alarm Clock Legs
+                paint.color = AndroidColor.rgb(203, 213, 225)
+                paint.strokeWidth = 22f
+                paint.style = Paint.Style.STROKE
+                canvas.drawLine(180f, 440f, 130f, 520f, paint)
+                canvas.drawLine(420f, 440f, 470f, 520f, paint)
+
+                // Alarm Clock Bells
+                paint.style = Paint.Style.FILL
+                paint.color = AndroidColor.rgb(239, 68, 68) // Bright Crimson
+                canvas.drawCircle(180f, 160f, 50f, paint)
+                canvas.drawCircle(420f, 160f, 50f, paint)
+                paint.color = AndroidColor.WHITE
+                paint.strokeWidth = 6f
+                paint.style = Paint.Style.STROKE
+                canvas.drawCircle(180f, 160f, 50f, paint)
+                canvas.drawCircle(420f, 160f, 50f, paint)
+
+                // Alarm Hammer
+                paint.style = Paint.Style.FILL
+                paint.color = AndroidColor.rgb(226, 232, 240)
+                canvas.drawRect(280f, 110f, 320f, 160f, paint)
+
+                // Alarm Clock Body
+                paint.color = AndroidColor.rgb(220, 38, 38)
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(sizePx / 2f, 310f, 140f, paint)
+
+                // Clock Body Outline
+                paint.color = AndroidColor.WHITE
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 10f
+                canvas.drawCircle(sizePx / 2f, 310f, 140f, paint)
+
+                // Clock Inner Face
+                paint.color = AndroidColor.WHITE
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(sizePx / 2f, 310f, 105f, paint)
+
+                // Clock Hands (Bold contrast)
+                paint.color = AndroidColor.rgb(15, 23, 42)
+                paint.strokeWidth = 14f
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.style = Paint.Style.STROKE
+                // Hour hand pointing to 7
+                canvas.drawLine(sizePx / 2f, 310f, 240f, 350f, paint)
+                // Minute hand pointing to 12
+                canvas.drawLine(sizePx / 2f, 310f, sizePx / 2f, 235f, paint)
+                // Center pin
+                paint.style = Paint.Style.FILL
+                paint.color = AndroidColor.rgb(239, 68, 68)
+                canvas.drawCircle(sizePx / 2f, 310f, 14f, paint)
+
+                // Vibrating Action Sound Waves
+                paint.style = Paint.Style.STROKE
+                paint.color = AndroidColor.rgb(254, 240, 138)
+                paint.strokeWidth = 8f
+                canvas.drawArc(RectF(60f, 60f, 240f, 240f), 130f, 80f, false, paint)
+                canvas.drawArc(RectF(360f, 60f, 540f, 240f), 330f, 80f, false, paint)
+            }
+            2 -> {
+                // Stage 2 (3x3): "Morning Rooster & Steaming Coffee"
+                val bgGradient = LinearGradient(
+                    0f, 0f, 0f, sizePx.toFloat(),
+                    intArrayOf(
+                        AndroidColor.rgb(2, 132, 199),  // Sky Blue
+                        AndroidColor.rgb(245, 158, 11), // Golden Amber
+                        AndroidColor.rgb(225, 29, 72)   // Rose Crimson
+                    ),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+                paint.shader = bgGradient
+                canvas.drawRect(0f, 0f, sizePx.toFloat(), sizePx.toFloat(), paint)
+                paint.shader = null
+
+                // Large Morning Sun on horizon
+                paint.style = Paint.Style.FILL
+                paint.color = AndroidColor.rgb(254, 240, 138)
+                canvas.drawCircle(sizePx / 2f, 200f, 130f, paint)
+
+                // Rolling Green Hill
+                paint.color = AndroidColor.rgb(22, 163, 74)
+                val hillPath = Path()
+                hillPath.moveTo(0f, 440f)
+                hillPath.cubicTo(150f, 380f, 350f, 490f, sizePx.toFloat(), 400f)
+                hillPath.lineTo(sizePx.toFloat(), sizePx.toFloat())
+                hillPath.lineTo(0f, sizePx.toFloat())
+                hillPath.close()
+                canvas.drawPath(hillPath, paint)
+
+                // Rooster Body (Left side)
+                paint.color = AndroidColor.rgb(185, 28, 28) // Deep Crimson
+                canvas.drawCircle(190f, 340f, 65f, paint)
+
+                // Rooster Head & Beak
+                paint.color = AndroidColor.rgb(220, 38, 38)
+                canvas.drawCircle(150f, 260f, 40f, paint)
+                // Yellow Beak
+                paint.color = AndroidColor.rgb(250, 204, 21)
+                val beakPath = Path()
+                beakPath.moveTo(115f, 255f)
+                beakPath.lineTo(75f, 270f)
+                beakPath.lineTo(120f, 285f)
+                beakPath.close()
+                canvas.drawPath(beakPath, paint)
+
+                // Rooster Comb (Top red spikes)
+                paint.color = AndroidColor.rgb(239, 68, 68)
+                canvas.drawCircle(135f, 220f, 18f, paint)
+                canvas.drawCircle(155f, 210f, 20f, paint)
+                canvas.drawCircle(175f, 220f, 18f, paint)
+
+                // Rooster Eye
+                paint.color = AndroidColor.WHITE
+                canvas.drawCircle(135f, 255f, 9f, paint)
+                paint.color = AndroidColor.BLACK
+                canvas.drawCircle(133f, 255f, 5f, paint)
+
+                // Rooster Tail Feathers (Vibrant Emerald & Gold)
+                val tailPath = Path()
+                tailPath.moveTo(220f, 320f)
+                tailPath.cubicTo(310f, 220f, 290f, 160f, 260f, 180f)
+                tailPath.cubicTo(290f, 230f, 250f, 300f, 210f, 350f)
+                tailPath.close()
+                paint.color = AndroidColor.rgb(5, 150, 105)
+                canvas.drawPath(tailPath, paint)
+
+                // Steaming Coffee Cup (Right side)
+                paint.color = AndroidColor.rgb(14, 116, 144) // Teal Mug
+                val mugRect = RectF(370f, 320f, 520f, 460f)
+                canvas.drawRoundRect(mugRect, 24f, 24f, paint)
+                // Mug Handle
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 18f
+                paint.color = AndroidColor.rgb(14, 116, 144)
+                canvas.drawArc(RectF(480f, 340f, 570f, 430f), 270f, 180f, false, paint)
+
+                // Mug Logo Star
+                paint.style = Paint.Style.FILL
+                paint.color = AndroidColor.rgb(250, 204, 21)
+                canvas.drawCircle(445f, 390f, 22f, paint)
+
+                // Coffee Steam Swirls
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 10f
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.color = AndroidColor.argb(220, 255, 255, 255)
+                val steam1 = Path()
+                steam1.moveTo(410f, 300f)
+                steam1.cubicTo(395f, 260f, 430f, 230f, 415f, 190f)
+                canvas.drawPath(steam1, paint)
+
+                val steam2 = Path()
+                steam2.moveTo(475f, 300f)
+                steam2.cubicTo(490f, 255f, 455f, 225f, 470f, 180f)
+                canvas.drawPath(steam2, paint)
+            }
+            else -> {
+                // Stage 3 (4x4): "Dawn Mountain Peak & Golden Sunburst"
+                val bgGradient = LinearGradient(
+                    0f, 0f, sizePx.toFloat(), sizePx.toFloat(),
+                    intArrayOf(
+                        AndroidColor.rgb(17, 24, 39),   // Night Sky
+                        AndroidColor.rgb(79, 70, 229),  // Indigo
+                        AndroidColor.rgb(234, 88, 12),  // Sunrise Orange
+                        AndroidColor.rgb(250, 204, 21)  // Dawn Gold
+                    ),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+                paint.shader = bgGradient
+                canvas.drawRect(0f, 0f, sizePx.toFloat(), sizePx.toFloat(), paint)
+                paint.shader = null
+
+                // Rotating 16-Ray Sunburst in Center
+                val cx = sizePx / 2f
+                val cy = 250f
+                val rayPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+                rayPaint.style = Paint.Style.FILL
+                for (i in 0 until 16) {
+                    val angle1 = i * 22.5
+                    val angle2 = angle1 + 11.25
+                    val path = Path()
+                    path.moveTo(cx, cy)
+                    val r = 380.0
+                    val x1 = cx + (r * Math.cos(Math.toRadians(angle1))).toFloat()
+                    val y1 = cy + (r * Math.sin(Math.toRadians(angle1))).toFloat()
+                    val x2 = cx + (r * Math.cos(Math.toRadians(angle2))).toFloat()
+                    val y2 = cy + (r * Math.sin(Math.toRadians(angle2))).toFloat()
+                    path.lineTo(x1, y1)
+                    path.lineTo(x2, y2)
+                    path.close()
+
+                    rayPaint.color = if (i % 2 == 0) {
+                        AndroidColor.argb(130, 255, 238, 88)
+                    } else {
+                        AndroidColor.argb(100, 255, 112, 67)
+                    }
+                    canvas.drawPath(path, rayPaint)
+                }
+
+                // Central Radiant Sun Core
+                paint.style = Paint.Style.FILL
+                paint.color = AndroidColor.rgb(254, 240, 138)
+                canvas.drawCircle(cx, cy, 100f, paint)
+                paint.color = AndroidColor.WHITE
+                canvas.drawCircle(cx, cy, 65f, paint)
+
+                // Background Mountain Range (Dark Violet)
+                val mtnBack = Path()
+                mtnBack.moveTo(0f, 480f)
+                mtnBack.lineTo(160f, 320f)
+                mtnBack.lineTo(340f, 460f)
+                mtnBack.lineTo(500f, 300f)
+                mtnBack.lineTo(sizePx.toFloat(), 450f)
+                mtnBack.lineTo(sizePx.toFloat(), sizePx.toFloat())
+                mtnBack.lineTo(0f, sizePx.toFloat())
+                mtnBack.close()
+                paint.color = AndroidColor.rgb(67, 56, 202)
+                canvas.drawPath(mtnBack, paint)
+
+                // Foreground Main Mountain (High contrast Deep Teal/Slate)
+                val mtnMain = Path()
+                mtnMain.moveTo(100f, sizePx.toFloat())
+                mtnMain.lineTo(sizePx / 2f, 290f)
+                mtnMain.lineTo(520f, sizePx.toFloat())
+                mtnMain.close()
+                paint.color = AndroidColor.rgb(15, 118, 110)
+                canvas.drawPath(mtnMain, paint)
+
+                // Snow Cap on Mountain Peak
+                val snowCap = Path()
+                snowCap.moveTo(sizePx / 2f, 290f)
+                snowCap.lineTo(260f, 360f)
+                snowCap.lineTo(285f, 345f)
+                snowCap.lineTo(300f, 370f)
+                snowCap.lineTo(325f, 350f)
+                snowCap.lineTo(340f, 365f)
+                snowCap.close()
+                paint.color = AndroidColor.WHITE
+                canvas.drawPath(snowCap, paint)
+
+                // Flying Wake Birds in sky
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 7f
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.color = AndroidColor.rgb(15, 23, 42)
+
+                // Bird 1
+                val bird1 = Path()
+                bird1.moveTo(120f, 130f)
+                bird1.quadTo(140f, 110f, 160f, 130f)
+                bird1.quadTo(180f, 110f, 200f, 130f)
+                canvas.drawPath(bird1, paint)
+
+                // Bird 2
+                val bird2 = Path()
+                bird2.moveTo(420f, 110f)
+                bird2.quadTo(435f, 95f, 450f, 110f)
+                bird2.quadTo(465f, 95f, 480f, 110f)
+                canvas.drawPath(bird2, paint)
+            }
+        }
+
+        return bitmap
     }
 
     @Composable
     override fun ChallengeContent(modifier: Modifier) {
         val size by gridSize.collectAsState()
         val tilesList by tiles.collectAsState()
+        val slices by tileSlices.collectAsState()
+        val fullRefImage by fullImage.collectAsState()
+        val selectedIndex by selectedGridIndex.collectAsState()
         val moves by moveCount.collectAsState()
+
+        val solvedCount = tilesList.indices.count { tilesList.getOrNull(it) == it }
+        val totalTiles = size * size
 
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(vertical = 4.dp),
+                .padding(vertical = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Objective Card
+            // Objective & Reference Preview Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -193,136 +547,273 @@ class PuzzleChallengeActivity : BaseChallengeActivity() {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${size}x${size} Picture Swap",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                         Text(
-                            text = "${size}x${size} High-Contrast Grid",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Text(
-                            text = "Slide numbers into sequential order (1..${size * size - 1})",
+                            text = "Tap 2 tiles to swap until picture is complete",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Matched: $solvedCount / $totalTiles",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (solvedCount == totalTiles) Color(0xFF16A34A) else MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "•  $moves Moves",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
                     }
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "$moves Moves",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            fontSize = 12.sp
-                        )
+
+                    // Target Reference Thumbnail
+                    if (fullRefImage != null) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                    .shadow(2.dp, RoundedCornerShape(8.dp))
+                            ) {
+                                Image(
+                                    bitmap = fullRefImage!!,
+                                    contentDescription = "Target Picture",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Text(
+                                text = "Target",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            // Big High-Contrast Puzzle Grid (Optimized for blurry morning eyes)
+            // Big High-Contrast Image Rearrangement Grid
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF1E293B))
+                    .background(Color(0xFF0F172A))
                     .border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
                     .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(size),
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    userScrollEnabled = false
-                ) {
-                    itemsIndexed(tilesList) { index, value ->
-                        PuzzleTileItem(
-                            number = value,
-                            gridSize = size,
-                            onClick = { onTileClicked(index) }
-                        )
+                if (slices.isNotEmpty() && tilesList.size == totalTiles) {
+                    val gridSpacing = when (size) {
+                        2 -> 8.dp
+                        3 -> 6.dp
+                        else -> 4.dp
+                    }
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(size),
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(gridSpacing),
+                        verticalArrangement = Arrangement.spacedBy(gridSpacing),
+                        userScrollEnabled = false
+                    ) {
+                        itemsIndexed(tilesList) { gridIndex, sliceIndex ->
+                            val sliceBitmap = slices.getOrNull(sliceIndex)
+                            val isSelected = selectedIndex == gridIndex
+                            val isCorrect = sliceIndex == gridIndex
+
+                            ImagePuzzleTileItem(
+                                sliceBitmap = sliceBitmap,
+                                gridIndex = gridIndex,
+                                sliceIndex = sliceIndex,
+                                isSelected = isSelected,
+                                isCorrect = isCorrect,
+                                gridSize = size,
+                                onClick = { onTileClicked(gridIndex) }
+                            )
+                        }
                     }
                 }
             }
 
-            // Reset / Help info
-            Text(
-                text = "Tap any tile adjacent to the empty dark slot to slide it",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            // Status Bar & Instructions
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selectedIndex != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (selectedIndex != null) {
+                        Icon(
+                            imageVector = Icons.Default.SwapHoriz,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Tile selected! Tap another tile to swap.",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        Text(
+                            text = "Tap a tile to select it, then tap another to swap",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-fun PuzzleTileItem(
-    number: Int,
+fun ImagePuzzleTileItem(
+    sliceBitmap: ImageBitmap?,
+    gridIndex: Int,
+    sliceIndex: Int,
+    isSelected: Boolean,
+    isCorrect: Boolean,
     gridSize: Int,
     onClick: () -> Unit
 ) {
-    if (number == 0) {
-        // Blank slot
-        Box(
-            modifier = Modifier
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF0F172A))
-                .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-        )
-    } else {
-        // High contrast vibrant tile colors
-        val tileColors = listOf(
-            Color(0xFF2563EB), // Blue
-            Color(0xFFD97706), // Amber
-            Color(0xFF059669), // Emerald
-            Color(0xFFDC2626), // Red
-            Color(0xFF7C3AED), // Purple
-            Color(0xFF0891B2), // Cyan
-            Color(0xFFDB2777), // Pink
-            Color(0xFF4F46E5), // Indigo
-            Color(0xFFEA580C), // Orange
-            Color(0xFF16A34A), // Green
-            Color(0xFF9333EA), // Violet
-            Color(0xFF0284C7), // Sky
-            Color(0xFFB91C1C), // Deep Red
-            Color(0xFFC026D3), // Fuchsia
-            Color(0xFF0D9488)  // Teal
-        )
-        val color = tileColors[(number - 1) % tileColors.size]
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = if (isSelected) 1.05f else 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "tilePulse"
+    )
 
-        val fontSize = when (gridSize) {
-            2 -> 48.sp // Extra large for 2x2!
-            3 -> 32.sp
-            else -> 24.sp
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> Color(0xFFFACC15) // Bright Gold/Yellow for selected
+            isCorrect -> Color(0xFF22C55E).copy(alpha = 0.85f) // Green indicator
+            else -> Color.White.copy(alpha = 0.35f)
+        },
+        label = "tileBorder"
+    )
+
+    val borderWidth = when {
+        isSelected -> 3.5.dp
+        isCorrect -> 2.dp
+        else -> 1.5.dp
+    }
+
+    val cornerRadius = when (gridSize) {
+        2 -> 14.dp
+        3 -> 10.dp
+        else -> 8.dp
+    }
+
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .scale(if (isSelected) pulseScale else 1.0f)
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(Color(0xFF1E293B))
+            .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
+            .clickable { onClick() }
+            .testTag("puzzle_tile_$gridIndex"),
+        contentAlignment = Alignment.Center
+    ) {
+        if (sliceBitmap != null) {
+            Image(
+                bitmap = sliceBitmap,
+                contentDescription = "Puzzle Tile $sliceIndex",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
         }
 
-        Box(
-            modifier = Modifier
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(14.dp))
-                .background(color)
-                .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                .clickable { onClick() }
-                .testTag("puzzle_tile_$number"),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "$number",
-                fontSize = fontSize,
-                fontWeight = FontWeight.Black,
-                color = Color.White
-            )
+        // Selection Overlay
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFFACC15).copy(alpha = 0.25f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFACC15)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SwapHoriz,
+                        contentDescription = "Selected",
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        // Subtle green checkmark badge in corner when correctly placed
+        if (isCorrect && !isSelected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(if (gridSize <= 3) 18.dp else 14.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF22C55E)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Correct",
+                    tint = Color.White,
+                    modifier = Modifier.size(if (gridSize <= 3) 12.dp else 9.dp)
+                )
+            }
         }
     }
 }
+
