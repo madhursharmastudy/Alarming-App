@@ -1,12 +1,12 @@
 package com.example.challenge
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,26 +17,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,6 +67,8 @@ data class GridItemSpec(
  * Low: 4 items (2x2), 1 round, 30s.
  * Moderate: 6 items (2x3), 2 rounds, 45s.
  * Difficult: 9 items (3x3), 3 rounds, 60s.
+ *
+ * Strict single-screen non-scrollable layout with weight-based structure.
  */
 class OddOneOutChallengeActivity : BaseChallengeActivity() {
 
@@ -92,9 +83,6 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
 
     private val totalRoundsState = MutableStateFlow(1)
     val totalRounds = totalRoundsState.asStateFlow()
-
-    private val isWrongTapState = MutableStateFlow(false)
-    val isWrongTap = isWrongTapState.asStateFlow()
 
     override fun getChallengeType(): ChallengeType = ChallengeType.ODD_ONE_OUT
 
@@ -114,14 +102,14 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
         }
         totalRoundsState.value = rounds
         currentRoundState.value = 1
-        isWrongTapState.value = false
+        setFeedbackMessage(null)
         setupRound(stage)
     }
 
     override fun onResetToStage1() {
         totalRoundsState.value = 1
         currentRoundState.value = 1
-        isWrongTapState.value = false
+        setFeedbackMessage(null)
         setupRound(1)
     }
 
@@ -133,7 +121,6 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
             else -> 4
         }
         gridColumnsState.value = if (stage == 3) 3 else 2
-        isWrongTapState.value = false
 
         val items = generateGridItems(stage, count)
         gridItemsState.value = items
@@ -162,12 +149,12 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
                 }
             }
             2 -> {
-                // Moderate: Medium difference (same shape with different color, OR same color with different shape)
-                val isColorDifference = Random.nextBoolean()
-                if (isColorDifference) {
+                // Moderate: Medium difference (either shape difference with same color, or inverted)
+                val pickColorDiff = Random.nextBoolean()
+                if (pickColorDiff) {
                     val shape = allShapes.random()
-                    val baseColor = listOf(Color(0xFF3B82F6), Color(0xFF10B981), Color(0xFF8B5CF6), Color(0xFF06B6D4)).random()
-                    val oddColor = listOf(Color(0xFFEF4444), Color(0xFFF59E0B)).random()
+                    val baseColor = listOf(Color(0xFF2563EB), Color(0xFF059669), Color(0xFFD97706)).random()
+                    val oddColor = listOf(Color(0xFFEF4444), Color(0xFF8B5CF6), Color(0xFF06B6D4)).random()
 
                     List(count) { idx ->
                         if (idx == oddIndex) {
@@ -228,20 +215,20 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
 
     fun onItemTapped(item: GridItemSpec) {
         if (item.isOdd) {
-            isWrongTapState.value = false
             val currentR = currentRoundState.value
             val totalR = totalRoundsState.value
 
             if (currentR < totalR) {
+                setFeedbackMessage("Round $currentR Passed! Next round...", isSuccess = true)
                 currentRoundState.value = currentR + 1
                 setupRound(currentStageState.value)
             } else {
-                // Stage passed!
+                setFeedbackMessage("All rounds passed! Stage Completed!", isSuccess = true)
                 completeCurrentStage()
             }
         } else {
             // Wrong item: user simply retries (no alarm re-ring)
-            isWrongTapState.value = true
+            setFeedbackMessage("That item matches the others! Keep looking for the odd one.", isError = true)
         }
     }
 
@@ -251,7 +238,6 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
         val cols by gridColumns.collectAsState()
         val round by currentRound.collectAsState()
         val totalR by totalRounds.collectAsState()
-        val isWrong by isWrongTap.collectAsState()
         val stage by currentStage.collectAsState()
 
         OddOneOutScreen(
@@ -259,7 +245,6 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
             columns = cols,
             currentRound = round,
             totalRounds = totalR,
-            isWrong = isWrong,
             currentStage = stage,
             onItemTapped = { onItemTapped(it) },
             modifier = modifier
@@ -273,142 +258,117 @@ fun OddOneOutScreen(
     columns: Int,
     currentRound: Int,
     totalRounds: Int,
-    isWrong: Boolean,
     currentStage: Int,
     onItemTapped: (GridItemSpec) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val rows = if (items.isNotEmpty() && columns > 0) (items.size + columns - 1) / columns else 2
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Stage Header & Round Info
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Round Indicator Pill
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = "Round $currentRound of $totalRounds • ${items.size} Items Grid",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        // Main Grid Play Area (weight 1f, strictly non-scrollable, calculated from BoxWithConstraints)
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            val totalW = maxWidth - 24.dp
+            val totalH = maxHeight - 16.dp
+
+            val cellW = totalW / columns
+            val cellH = totalH / rows
+            val cellSize = minOf(cellW, cellH).coerceAtMost(100.dp)
+
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                modifier = Modifier
+                    .size(cellSize * columns + 16.dp, cellSize * rows + 16.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant)
+                )
             ) {
-                Row(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .padding(6.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column {
-                        Text(
-                            text = "Stage $currentStage: ${items.size} Items Grid",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = when (currentStage) {
-                                1 -> "Spot the obvious different item"
-                                2 -> "Spot the medium difference"
-                                else -> "Spot the subtle shade or detail"
-                            },
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = "Round $currentRound of $totalRounds",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            // Wrong feedback banner
-            AnimatedVisibility(visible = isWrong) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "That item matches the others! Keep looking for the odd one.",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
+                    for (r in 0 until rows) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(cellSize),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            for (c in 0 until columns) {
+                                val index = r * columns + c
+                                if (index < items.size) {
+                                    val spec = items[index]
+                                    Box(
+                                        modifier = Modifier
+                                            .size(cellSize - 6.dp)
+                                            .padding(3.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surface)
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                                RoundedCornerShape(12.dp)
+                                            )
+                                            .clickable { onItemTapped(spec) }
+                                            .testTag("odd_item_$index"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        OddShapeItemCanvas(spec = spec)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Shape Grid
-        Card(
+        // Fixed-Height Bottom Prompt Helper
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = false)
-                .padding(vertical = 12.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant)
-            )
+                .height(36.dp),
+            contentAlignment = Alignment.Center
         ) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(columns),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                userScrollEnabled = false
-            ) {
-                items(items.size) { index ->
-                    val spec = items[index]
-                    Box(
-                        modifier = Modifier
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                            .clickable { onItemTapped(spec) }
-                            .testTag("odd_item_$index"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        OddShapeItemCanvas(spec = spec)
-                    }
-                }
-            }
+            Text(
+                text = "Tap the single item that is different from all the rest",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
-
-        // Prompt helper at bottom
-        Text(
-            text = "Tap the single item that is different from all the rest",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
     }
 }
 
@@ -451,38 +411,61 @@ fun OddShapeItemCanvas(spec: GridItemSpec) {
                 }
                 drawPath(path = path, color = spec.color)
             }
-            OddShapeType.HEXAGON -> {
-                val path = Path().apply {
-                    for (i in 0 until 6) {
-                        val angle = Math.toRadians((60 * i - 30).toDouble())
-                        val px = cx + (radius * Math.cos(angle)).toFloat()
-                        val py = cy + (radius * Math.sin(angle)).toFloat()
-                        if (i == 0) moveTo(px, py) else lineTo(px, py)
-                    }
-                    close()
-                }
-                drawPath(path = path, color = spec.color)
-            }
             OddShapeType.STAR -> {
-                val path = Path().apply {
-                    val outer = radius
-                    val inner = radius * 0.45f
-                    for (i in 0 until 10) {
-                        val r = if (i % 2 == 0) outer else inner
-                        val angle = Math.toRadians((36 * i - 90).toDouble())
-                        val px = cx + (r * Math.cos(angle)).toFloat()
-                        val py = cy + (r * Math.sin(angle)).toFloat()
-                        if (i == 0) moveTo(px, py) else lineTo(px, py)
-                    }
-                    close()
-                }
-                drawPath(path = path, color = spec.color)
+                drawStar(cx, cy, radius, spec.color)
+            }
+            OddShapeType.HEXAGON -> {
+                drawHexagon(cx, cy, radius, spec.color)
             }
         }
 
-        // Optional subtle inner dot for subtle difficulty stage
+        // Optional inner dot detail
         if (spec.hasInnerDot) {
-            drawCircle(color = Color.White, radius = radius * 0.22f, center = Offset(cx, cy))
+            drawCircle(color = Color.White, radius = radius * 0.28f, center = Offset(cx, cy))
+            drawCircle(color = Color.Black.copy(alpha = 0.5f), radius = radius * 0.16f, center = Offset(cx, cy))
         }
     }
+}
+
+private fun DrawScope.drawStar(cx: Float, cy: Float, radius: Float, color: Color) {
+    val path = Path()
+    val spikes = 5
+    val step = Math.PI / spikes
+    var rotation = -Math.PI / 2.0
+    val innerRadius = radius * 0.45f
+
+    path.moveTo(
+        (cx + Math.cos(rotation) * radius).toFloat(),
+        (cy + Math.sin(rotation) * radius).toFloat()
+    )
+
+    for (i in 0 until spikes) {
+        rotation += step
+        path.lineTo(
+            (cx + Math.cos(rotation) * innerRadius).toFloat(),
+            (cy + Math.sin(rotation) * innerRadius).toFloat()
+        )
+        rotation += step
+        path.lineTo(
+            (cx + Math.cos(rotation) * radius).toFloat(),
+            (cy + Math.sin(rotation) * radius).toFloat()
+        )
+    }
+    path.close()
+    drawPath(path = path, color = color)
+}
+
+private fun DrawScope.drawHexagon(cx: Float, cy: Float, radius: Float, color: Color) {
+    val path = Path()
+    val sides = 6
+    val angle = (2 * Math.PI / sides)
+
+    for (i in 0 until sides) {
+        val currentAngle = i * angle - Math.PI / 2.0
+        val x = (cx + radius * Math.cos(currentAngle)).toFloat()
+        val y = (cy + radius * Math.sin(currentAngle)).toFloat()
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    drawPath(path = path, color = color)
 }

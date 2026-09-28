@@ -1,10 +1,10 @@
 package com.example.challenge
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -16,18 +16,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -35,15 +29,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +58,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * 3-Stage Progressive Typing Task Challenge.
  * Requires exact case-sensitive, punctuation, space, and number matching.
  * Time limits: Low 40s, Moderate 60s, Difficult 90s.
+ *
+ * Strict single-screen non-scrollable layout with weight-based structure.
  */
 class TypingChallengeActivity : BaseChallengeActivity() {
 
@@ -92,6 +85,7 @@ class TypingChallengeActivity : BaseChallengeActivity() {
         previousPickedText = selected
         targetTextState.value = selected
         userTypedState.value = ""
+        setFeedbackMessage(null)
     }
 
     override fun onResetToStage1() {
@@ -99,6 +93,7 @@ class TypingChallengeActivity : BaseChallengeActivity() {
         previousPickedText = selected
         targetTextState.value = selected
         userTypedState.value = ""
+        setFeedbackMessage(null)
     }
 
     fun onUserInputChanged(input: String) {
@@ -107,8 +102,18 @@ class TypingChallengeActivity : BaseChallengeActivity() {
 
         // Exact match check (case-sensitive, spaces, punctuation, numbers)
         if (input == target) {
+            setFeedbackMessage("Exact match! Stage Completed!", isSuccess = true)
             completeCurrentStage()
+        } else if (input.isNotEmpty() && !target.startsWith(input)) {
+            setFeedbackMessage("Mismatch! Check spelling, casing, or spaces.", isError = true)
+        } else {
+            setFeedbackMessage(null)
         }
+    }
+
+    fun onClear() {
+        userTypedState.value = ""
+        setFeedbackMessage(null)
     }
 
     @Composable
@@ -122,7 +127,7 @@ class TypingChallengeActivity : BaseChallengeActivity() {
             typedText = typed,
             currentStage = stage,
             onTextChanged = { onUserInputChanged(it) },
-            onClearText = { userTypedState.value = "" },
+            onClearText = { onClear() },
             modifier = modifier
         )
     }
@@ -139,9 +144,7 @@ fun TypingChallengeScreen(
     modifier: Modifier = Modifier
 ) {
     val focusRequester = remember { FocusRequester() }
-    val scrollState = rememberScrollState()
 
-    // Request keyboard focus immediately for quick wake-up typing
     LaunchedEffect(currentStage) {
         delay(300)
         try {
@@ -149,292 +152,178 @@ fun TypingChallengeScreen(
         } catch (_: Exception) {}
     }
 
-    // Determine character match feedback
     val isExactMatch = typedText == targetText
     val hasMismatch = typedText.isNotEmpty() && !targetText.startsWith(typedText)
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Main Play Area (weight 1f, strictly non-scrollable)
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
-            // Stage instruction banner
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Keyboard,
-                        contentDescription = "Typing Task",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = when (currentStage) {
-                                1 -> "STAGE 1: LOW (2-4 Words)"
-                                2 -> "STAGE 2: MODERATE (4-6 Words)"
-                                else -> "STAGE 3: DIFFICULT (Punctuation & Numbers)"
-                            },
-                            fontWeight = FontWeight.Black,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Type text exactly as shown (case-sensitive & exact spaces).",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            val totalHeight = maxHeight
+            val totalWidth = maxWidth
+
+            // Dynamic typography scaling based on text length and available space
+            val fontSize = when {
+                targetText.length > 35 || totalHeight < 280.dp -> 16.sp
+                targetText.length > 22 -> 19.sp
+                else -> 23.sp
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Large Target Text Display Card with Live Comparison Highlighting
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isExactMatch) {
-                        Color(0xFF065F46) // Green match container
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    }
-                ),
-                shape = RoundedCornerShape(20.dp),
-                border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(
-                        if (isExactMatch) Color(0xFF10B981)
-                        else if (hasMismatch) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "TARGET TEXT",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 1.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Live Highlighted Characters Flow
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        targetText.forEachIndexed { index, char ->
-                            val userChar = typedText.getOrNull(index)
-                            val isCharMatched = userChar != null && userChar == char
-                            val isCharMismatch = userChar != null && userChar != char
-                            val charColor = when {
-                                isCharMatched -> Color(0xFF10B981) // Crisp Green
-                                isCharMismatch -> Color(0xFFEF4444) // Error Red
-                                else -> MaterialTheme.colorScheme.onSurface // Untyped
+                // Section 1: Target Text Display Card with Live Highlighting
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isExactMatch) Color(0xFF065F46) else MaterialTheme.colorScheme.surface
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(
+                            when {
+                                isExactMatch -> Color(0xFF10B981)
+                                hasMismatch -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                             }
-                            val charBg = if (isCharMismatch) Color(0xFFEF4444).copy(alpha = 0.2f) else Color.Transparent
+                        )
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "TARGET TEXT (TYPE EXACTLY AS SHOWN)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.sp
+                        )
 
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = if (char == ' ') 3.dp else 1.dp, vertical = 2.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(charBg)
-                                    .padding(horizontal = 2.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = if (char == ' ') " " else char.toString(),
-                                    fontSize = 26.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = charColor,
-                                    textAlign = TextAlign.Center
-                                )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            targetText.forEachIndexed { index, char ->
+                                val userChar = typedText.getOrNull(index)
+                                val isCharMatched = userChar != null && userChar == char
+                                val isCharMismatch = userChar != null && userChar != char
+                                val charColor = when {
+                                    isCharMatched -> Color(0xFF10B981)
+                                    isCharMismatch -> Color(0xFFEF4444)
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                                val charBg = if (isCharMismatch) Color(0xFFEF4444).copy(alpha = 0.2f) else Color.Transparent
+
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = if (char == ' ') 3.dp else 1.dp, vertical = 1.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(charBg)
+                                        .padding(horizontal = 2.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (char == ' ') " " else char.toString(),
+                                        fontSize = fontSize,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = charColor,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Status & Feedback Badge
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (hasMismatch) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = "Mismatch",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
+                // Section 2: Input Text Field
+                OutlinedTextField(
+                    value = typedText,
+                    onValueChange = onTextChanged,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .testTag("typing_input_field"),
+                    placeholder = {
                         Text(
-                            text = "Character mismatch! Check case or symbols.",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
+                            "Type exact sentence here...",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
-                    }
-                } else if (typedText.isNotEmpty() && !isExactMatch) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Matching",
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Matching so far... keep going!",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF10B981)
-                        )
-                    }
-                } else if (isExactMatch) {
-                    Text(
-                        text = "PERFECT MATCH! Advancing...",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF10B981)
+                    },
+                    trailingIcon = {
+                        if (typedText.isNotEmpty()) {
+                            IconButton(onClick = onClearText) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = fontSize,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (hasMismatch) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (typedText == targetText) onTextChanged(typedText)
+                        }
                     )
-                } else {
-                    Text(
-                        text = "Type using the on-screen keyboard below",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Progress counter (chars typed / total chars)
-                Text(
-                    text = "${typedText.length} / ${targetText.length}",
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Sleep-Inertia Friendly Large Text Input Field
-            OutlinedTextField(
-                value = typedText,
-                onValueChange = onTextChanged,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .testTag("typing_input_field"),
-                shape = RoundedCornerShape(16.dp),
-                textStyle = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                ),
-                placeholder = {
-                    Text("Start typing here...", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                },
-                trailingIcon = {
-                    if (typedText.isNotEmpty()) {
-                        IconButton(
-                            onClick = onClearText,
-                            modifier = Modifier.testTag("clear_typed_text_button")
-                        ) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear Input", tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                },
-                isError = hasMismatch,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (isExactMatch) Color(0xFF10B981) else MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                ),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.None,
-                    autoCorrectEnabled = false,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        // User pressed Done on software keyboard
-                        if (typedText == targetText) {
-                            onTextChanged(typedText)
-                        }
-                    }
-                ),
-                singleLine = false,
-                maxLines = 3
-            )
         }
 
-        // Action Buttons at bottom
-        Column(
+        // Fixed-Height Bottom Action Row (Never shifts or scrolls)
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp)
+                .height(50.dp)
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.Center
         ) {
             Button(
-                onClick = {
-                    if (typedText == targetText) {
-                        onTextChanged(typedText)
-                    }
-                },
+                onClick = onClearText,
                 enabled = typedText.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .testTag("submit_typing_button"),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isExactMatch) Color(0xFF10B981) else MaterialTheme.colorScheme.primary
-                ),
-                shape = RoundedCornerShape(16.dp)
+                    .height(48.dp)
+                    .testTag("clear_typed_text_button"),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (isExactMatch) Icons.Default.Check else Icons.Default.Keyboard,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isExactMatch) "STAGE CLEARED!" else "Verify Match",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
+                Icon(Icons.Default.Clear, contentDescription = "Clear Input", modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Clear Text", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         }
     }

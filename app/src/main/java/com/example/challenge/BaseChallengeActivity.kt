@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
@@ -87,11 +88,28 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     protected val isCompletedState = MutableStateFlow(false)
     val isCompleted = isCompletedState.asStateFlow()
 
+    data class ChallengeFeedback(
+        val message: String,
+        val isError: Boolean = false,
+        val isSuccess: Boolean = false
+    )
+
     protected val timeoutNoticeState = MutableStateFlow<String?>(null)
     val timeoutNotice = timeoutNoticeState.asStateFlow()
 
+    protected val feedbackMessageState = MutableStateFlow<ChallengeFeedback?>(null)
+    val feedbackMessage = feedbackMessageState.asStateFlow()
+
     protected val isAlarmLoudState = MutableStateFlow(false)
     val isAlarmLoud = isAlarmLoudState.asStateFlow()
+
+    fun setFeedbackMessage(message: String?, isError: Boolean = false, isSuccess: Boolean = false) {
+        feedbackMessageState.value = if (message != null) {
+            ChallengeFeedback(message, isError, isSuccess)
+        } else {
+            null
+        }
+    }
 
     private var stageTimer: CountDownTimer? = null
     private var abandonHandler: Handler? = null
@@ -178,13 +196,14 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     protected fun completeCurrentStage() {
         val next = currentStageState.value + 1
         if (next <= getTotalStages()) {
-            timeoutNoticeState.value = "Stage ${currentStageState.value} Passed! Advancing..."
+            setFeedbackMessage("Stage ${currentStageState.value} Passed! Advancing...", isSuccess = true)
             startStage(next)
         } else {
             // Challenge Completed Fully!
             isCompletedState.value = true
             stageTimer?.cancel()
             AlarmRingingService.stopRinging(this)
+            setFeedbackMessage("Challenge Completed! Alarm dismissed.", isSuccess = true)
             Toast.makeText(this, "Challenge Completed! Alarm dismissed.", Toast.LENGTH_LONG).show()
         }
     }
@@ -193,7 +212,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         stageTimer?.cancel()
         isAlarmLoudState.value = true
         AlarmRingingService.resumeAlarm(this)
-        timeoutNoticeState.value = "TIME'S UP! Alarm resumed at full volume & reset to Stage 1!"
+        setFeedbackMessage("TIME'S UP! Alarm resumed & reset to Stage 1!", isError = true)
         onResetToStage1()
         startStage(1)
     }
@@ -201,7 +220,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     fun reSilenceAlarm() {
         AlarmRingingService.silenceForChallenge(this)
         isAlarmLoudState.value = false
-        timeoutNoticeState.value = null
+        setFeedbackMessage(null)
     }
 
     override fun onUserLeaveHint() {
@@ -216,7 +235,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                 // Grace period expired!
                 AlarmRingingService.resumeAlarm(this@BaseChallengeActivity)
                 isAlarmLoudState.value = true
-                timeoutNoticeState.value = "Abandoned! Alarm resumed & reset to Stage 1!"
+                setFeedbackMessage("Abandoned! Alarm resumed & reset to Stage 1!", isError = true)
                 onResetToStage1()
                 startStage(1)
 
@@ -254,7 +273,12 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         val totalSec by totalStageTime.collectAsState()
         val completed by isCompleted.collectAsState()
         val notice by timeoutNotice.collectAsState()
+        val feedback by feedbackMessage.collectAsState()
         val isLoud by isAlarmLoud.collectAsState()
+
+        val activeNotice = feedback?.message ?: notice
+        val isErrorNotice = feedback?.isError == true || isLoud
+        val isSuccessNotice = feedback?.isSuccess == true && !isLoud
 
         val progress = if (totalSec > 0) (remainingSec.toFloat() / totalSec.toFloat()) else 0f
         val isUrgent = remainingSec <= 10 && remainingSec > 0
@@ -279,9 +303,9 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                // Header Bar with 3-Stage Stepper
+                // Section 1: Fixed-Height Compact Header
                 ChallengeHeader(
                     challengeType = getChallengeType(),
                     currentStage = stage,
@@ -295,42 +319,67 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                     onReSilence = { reSilenceAlarm() }
                 )
 
-                // Urgent Notice / Timeout Warning Banner
-                AnimatedVisibility(visible = notice != null) {
-                    notice?.let { msg ->
+                // Section 2: Reserved Fixed-Height Message Slot (Never shifts or pushes layout)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .padding(vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (activeNotice != null) {
+                        val bgColor = when {
+                            isErrorNotice -> MaterialTheme.colorScheme.errorContainer
+                            isSuccessNotice -> Color(0xFF065F46)
+                            else -> MaterialTheme.colorScheme.primaryContainer
+                        }
+                        val contentColor = when {
+                            isErrorNotice -> MaterialTheme.colorScheme.onErrorContainer
+                            isSuccessNotice -> Color(0xFFD1FAE5)
+                            else -> MaterialTheme.colorScheme.onPrimaryContainer
+                        }
+                        val iconColor = when {
+                            isErrorNotice -> MaterialTheme.colorScheme.error
+                            isSuccessNotice -> Color(0xFF10B981)
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                        val iconVector = when {
+                            isErrorNotice -> Icons.Default.Warning
+                            isSuccessNotice -> Icons.Default.Check
+                            else -> Icons.Default.Info
+                        }
+
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isLoud) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier.fillMaxSize(),
+                            colors = CardDefaults.cardColors(containerColor = bgColor),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(12.dp),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = if (isLoud) Icons.Default.Warning else Icons.Default.Check,
-                                    contentDescription = "Alert",
-                                    tint = if (isLoud) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                    imageVector = iconVector,
+                                    contentDescription = null,
+                                    tint = iconColor,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = msg,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = activeNotice,
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isLoud) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                                    maxLines = 1,
+                                    color = contentColor
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Specific Challenge Body
+                // Section 3: Main Play Area (weight 1f, strictly non-scrollable)
                 if (completed) {
                     ChallengeSuccessView {
                         finish()
@@ -367,26 +416,22 @@ fun ChallengeHeader(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = challengeType.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = if (totalStages == 1) "Single Action Challenge" else "3-Stage Progressive Challenge",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1
                     )
                 }
 
@@ -395,30 +440,32 @@ fun ChallengeHeader(
                     Button(
                         onClick = onReSilence,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.testTag("re_silence_button")
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier
+                            .height(28.dp)
+                            .testTag("re_silence_button")
                     ) {
-                        Icon(Icons.Default.VolumeOff, contentDescription = "Silence", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Re-Silence", fontSize = 12.sp)
+                        Icon(Icons.Default.VolumeOff, contentDescription = "Silence", modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("Re-Silence", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.VolumeOff,
                             contentDescription = "Silent Mode",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(12.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
-                            text = "Silent Active",
+                            text = "Silent",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
@@ -427,7 +474,7 @@ fun ChallengeHeader(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Stage Progress Indicator Row
             if (totalStages == 1) {
@@ -450,7 +497,7 @@ fun ChallengeHeader(
                         isPassed = currentStage > 1,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     StageStepItem(
                         stageNumber = 2,
                         title = "Moderate",
@@ -458,7 +505,7 @@ fun ChallengeHeader(
                         isPassed = currentStage > 2,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     StageStepItem(
                         stageNumber = 3,
                         title = "Advanced",
@@ -469,9 +516,9 @@ fun ChallengeHeader(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Timer Bar
+            // Timer Bar Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -482,12 +529,12 @@ fun ChallengeHeader(
                         imageVector = Icons.Default.Timer,
                         contentDescription = "Timer",
                         tint = if (isUrgent || isLoud) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Time Limit: ${remainingSec}s left",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "${remainingSec}s left",
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isUrgent || isLoud) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.scale(if (isUrgent || isLoud) pulseScale else 1.0f)
@@ -495,12 +542,12 @@ fun ChallengeHeader(
                 }
                 Text(
                     text = "Total ${totalSec}s",
-                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             val progressColor by animateColorAsState(
                 targetValue = if (isUrgent || isLoud) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
@@ -511,8 +558,8 @@ fun ChallengeHeader(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
                 color = progressColor,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
@@ -544,34 +591,31 @@ fun StageStepItem(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
-            .border(width = if (isCurrent) 2.dp else 0.dp, color = borderColor, shape = RoundedCornerShape(10.dp))
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .border(width = if (isCurrent) 1.5.dp else 0.dp, color = borderColor, shape = RoundedCornerShape(8.dp))
+            .padding(vertical = 3.dp, horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isPassed) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Passed",
-                        tint = textColor,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
-                }
-                Text(
-                    text = "Stage $stageNumber",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (isPassed) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Passed",
+                    tint = textColor,
+                    modifier = Modifier.size(11.dp)
                 )
+                Spacer(modifier = Modifier.width(2.dp))
             }
             Text(
-                text = title,
+                text = "S$stageNumber: $title",
                 fontSize = 10.sp,
-                color = textColor.copy(alpha = 0.85f)
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                maxLines = 1
             )
         }
     }

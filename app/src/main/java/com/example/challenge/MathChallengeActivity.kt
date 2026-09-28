@@ -1,36 +1,25 @@
 package com.example.challenge
 
-import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
-import androidx.compose.material.icons.filled.Calculate
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,10 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ChallengeType
@@ -50,19 +37,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.random.Random
 
+/**
+ * 3-Stage Progressive Math Challenge.
+ * Low: Single-digit addition.
+ * Moderate: Double-digit arithmetic.
+ * Difficult: Multi-step multiplication and addition.
+ *
+ * Strict single-screen non-scrollable layout with weight-based structure.
+ */
 class MathChallengeActivity : BaseChallengeActivity() {
 
-    private val equationState = MutableStateFlow("7 + 8 = ?")
+    private val equationState = MutableStateFlow("7 + 8")
     val equation = equationState.asStateFlow()
 
     private val userInputState = MutableStateFlow("")
     val userInput = userInputState.asStateFlow()
-
-    private val feedbackState = MutableStateFlow<String?>(null)
-    val feedback = feedbackState.asStateFlow()
-
-    private val solvedInStageState = MutableStateFlow(0)
-    val solvedInStage = solvedInStageState.asStateFlow()
 
     private var targetAnswer = 15
 
@@ -76,16 +65,14 @@ class MathChallengeActivity : BaseChallengeActivity() {
     }
 
     override fun onStageStarted(stage: Int) {
-        solvedInStageState.value = 0
         userInputState.value = ""
-        feedbackState.value = null
+        setFeedbackMessage(null)
         generateMathProblem(stage)
     }
 
     override fun onResetToStage1() {
-        solvedInStageState.value = 0
         userInputState.value = ""
-        feedbackState.value = "Reset to Stage 1! Solve the math problem."
+        setFeedbackMessage(null)
         generateMathProblem(1)
     }
 
@@ -139,6 +126,7 @@ class MathChallengeActivity : BaseChallengeActivity() {
                 val cur = userInputState.value
                 if (cur.isNotEmpty()) {
                     userInputState.value = cur.dropLast(1)
+                    setFeedbackMessage(null)
                 }
             }
             "OK" -> {
@@ -147,6 +135,7 @@ class MathChallengeActivity : BaseChallengeActivity() {
             else -> {
                 if (userInputState.value.length < 5) {
                     userInputState.value += key
+                    setFeedbackMessage(null)
                 }
             }
         }
@@ -157,10 +146,10 @@ class MathChallengeActivity : BaseChallengeActivity() {
         if (input == null) return
 
         if (input == targetAnswer) {
-            feedbackState.value = "Correct! ($targetAnswer)"
+            setFeedbackMessage("Correct! ($targetAnswer) - Stage Completed!", isSuccess = true)
             completeCurrentStage()
         } else {
-            feedbackState.value = "Incorrect: $input. Try again!"
+            setFeedbackMessage("Incorrect: $input. Try again!", isError = true)
             userInputState.value = ""
         }
     }
@@ -169,136 +158,155 @@ class MathChallengeActivity : BaseChallengeActivity() {
     override fun ChallengeContent(modifier: Modifier) {
         val eq by equation.collectAsState()
         val input by userInput.collectAsState()
-        val fb by feedback.collectAsState()
         val stage by currentStage.collectAsState()
 
-        val stageDescription = when (stage) {
-            1 -> "Low: Single-Digit Addition"
-            2 -> "Moderate: Double-Digit Arithmetic"
-            3 -> "Advanced: Multiplication & Multi-Step"
-            else -> ""
-        }
-
-        Column(
+        MathChallengeScreen(
+            equation = eq,
+            userInput = input,
+            currentStage = stage,
+            onKeyPress = { onKeypadPress(it) },
             modifier = modifier
-                .fillMaxSize()
-                .padding(vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+        )
+    }
+}
+
+@Composable
+fun MathChallengeScreen(
+    equation: String,
+    userInput: String,
+    currentStage: Int,
+    onKeyPress: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        // Problem Display Board (weight 1f, strictly non-scrollable)
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
-            // Problem Display Board
+            val totalH = maxHeight
+            val eqFontSize = if (totalH < 180.dp) 28.sp else 36.sp
+            val inputBoxHeight = if (totalH < 180.dp) 44.dp else 52.dp
+
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                shape = RoundedCornerShape(20.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)),
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = stageDescription,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "$eq = ?",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 38.sp
+                        text = "SOLVE TO DISMISS",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        letterSpacing = 1.sp
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "$equation = ?",
+                        fontSize = eqFontSize,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Input Box
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(56.dp)
+                            .fillMaxWidth(0.65f)
+                            .height(inputBoxHeight)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surface)
                             .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (input.isEmpty()) "Enter Answer" else input,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (input.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    if (fb != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = fb!!,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (fb!!.startsWith("Correct")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            text = if (userInput.isEmpty()) "Answer" else userInput,
+                            fontSize = if (totalH < 180.dp) 22.sp else 28.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (userInput.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f) else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
             }
+        }
 
-            // Custom High-Contrast Keypad
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val keys = listOf(
-                    listOf("1", "2", "3"),
-                    listOf("4", "5", "6"),
-                    listOf("7", "8", "9"),
-                    listOf("DEL", "0", "OK")
-                )
+        // Custom High-Contrast Keypad (Fixed height, strictly non-scrollable)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val keys = listOf(
+                listOf("1", "2", "3"),
+                listOf("4", "5", "6"),
+                listOf("7", "8", "9"),
+                listOf("DEL", "0", "OK")
+            )
 
-                keys.forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        row.forEach { key ->
-                            val isAction = key == "DEL" || key == "OK"
-                            val btnColor = when (key) {
-                                "OK" -> MaterialTheme.colorScheme.primary
-                                "DEL" -> MaterialTheme.colorScheme.errorContainer
-                                else -> MaterialTheme.colorScheme.surfaceVariant
-                            }
-                            val txtColor = when (key) {
-                                "OK" -> MaterialTheme.colorScheme.onPrimary
-                                "DEL" -> MaterialTheme.colorScheme.onErrorContainer
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            }
+            keys.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    row.forEach { key ->
+                        val isOk = key == "OK"
+                        val isDel = key == "DEL"
+                        val btnColor = when {
+                            isOk -> MaterialTheme.colorScheme.primary
+                            isDel -> MaterialTheme.colorScheme.errorContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                        val txtColor = when {
+                            isOk -> MaterialTheme.colorScheme.onPrimary
+                            isDel -> MaterialTheme.colorScheme.onErrorContainer
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
 
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(58.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(btnColor)
-                                    .clickable { onKeypadPress(key) }
-                                    .testTag("keypad_$key"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (key == "DEL") {
-                                    Icon(
-                                        imageVector = Icons.Default.Backspace,
-                                        contentDescription = "Delete",
-                                        tint = txtColor
-                                    )
-                                } else {
-                                    Text(
-                                        text = key,
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = txtColor
-                                    )
-                                }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(btnColor)
+                                .clickable { onKeyPress(key) }
+                                .testTag("keypad_$key"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isDel) {
+                                Icon(
+                                    imageVector = Icons.Default.Backspace,
+                                    contentDescription = "Delete",
+                                    tint = txtColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = key,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = txtColor
+                                )
                             }
                         }
                     }

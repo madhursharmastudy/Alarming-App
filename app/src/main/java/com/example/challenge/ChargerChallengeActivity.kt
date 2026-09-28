@@ -5,9 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
-import android.os.Build
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -17,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,8 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material3.Card
@@ -42,7 +39,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,7 +47,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +67,8 @@ enum class ChargerRequiredAction {
  * If currently charging -> User must unplug the charger.
  * If currently on battery (not charging) -> User must plug in the charger.
  * Completes immediately when the state transitions.
+ *
+ * Strict single-screen non-scrollable layout with weight-based structure.
  */
 class ChargerChallengeActivity : BaseChallengeActivity() {
 
@@ -96,10 +93,12 @@ class ChargerChallengeActivity : BaseChallengeActivity() {
     override fun onStageStarted(stage: Int) {
         checkInitialPowerState()
         registerPowerReceiver()
+        setFeedbackMessage(null)
     }
 
     override fun onResetToStage1() {
         checkInitialPowerState()
+        setFeedbackMessage(null)
     }
 
     private fun checkInitialPowerState() {
@@ -157,6 +156,7 @@ class ChargerChallengeActivity : BaseChallengeActivity() {
                 (action == ChargerRequiredAction.PLUG_IN && isNowCharging)
 
         if (satisfied) {
+            setFeedbackMessage("Charger state verified! Challenge Completed!", isSuccess = true)
             Toast.makeText(this, "Charger state verified! Success!", Toast.LENGTH_SHORT).show()
             completeCurrentStage()
         }
@@ -205,176 +205,146 @@ fun ChargerChallengeScreen(
         label = "chargerPulse"
     )
 
+    val isActionUnplug = requiredAction == ChargerRequiredAction.UNPLUG
+    val themeColor = if (isActionUnplug) Color(0xFFEF4444) else Color(0xFF10B981)
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Status Card Top
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        // Status Pill
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
+            Icon(
+                imageVector = if (isCharging) Icons.Default.BatteryChargingFull else Icons.Default.BatteryAlert,
+                contentDescription = null,
+                tint = if (isCharging) Color(0xFF10B981) else Color(0xFFF59E0B),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = if (isCharging) "Charging ($batteryPct%) • Connected" else "On Battery ($batteryPct%) • Disconnected",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Center Pulsing Graphic & Giant Instruction Area (weight 1f, strictly non-scrollable)
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            val totalHeight = maxHeight
+            val iconBoxSize = minOf(totalHeight * 0.38f, 130.dp).coerceAtLeast(80.dp)
+            val iconInnerSize = (iconBoxSize.value * 0.52f).dp
+
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .fillMaxSize()
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (isCharging) Icons.Default.BatteryChargingFull else Icons.Default.BatteryAlert,
-                        contentDescription = "Battery Status",
-                        tint = if (isCharging) Color(0xFF10B981) else Color(0xFFF59E0B),
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "DEVICE BATTERY",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Pulsing Icon
+                Box(
+                    modifier = Modifier
+                        .size(iconBoxSize)
+                        .scale(pulseScale)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    themeColor.copy(alpha = 0.35f),
+                                    themeColor.copy(alpha = 0.05f)
+                                )
+                            )
                         )
+                        .border(3.dp, themeColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isActionUnplug) Icons.Default.PowerOff else Icons.Default.Power,
+                        contentDescription = "Charger Action",
+                        tint = themeColor,
+                        modifier = Modifier.size(iconInnerSize)
+                    )
+                }
+
+                // Sleep-Inertia Friendly Giant Text Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("charger_action_card"),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = themeColor.copy(alpha = 0.15f)),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(themeColor)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
-                            text = if (isCharging) "Charging ($batteryPct%)" else "On Battery ($batteryPct%)",
-                            fontSize = 15.sp,
+                            text = "REQUIRED PHYSICAL ACTION",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = themeColor,
+                            letterSpacing = 1.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = if (isActionUnplug) "UNPLUG THE CHARGER" else "PLUG IN THE CHARGER",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = if (isActionUnplug) {
+                                "Phone was charging when alarm rang. Unplug the cable to stop the alarm."
+                            } else {
+                                "Phone is not charging. Connect your charger cable to prove you are awake."
+                            },
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
-
-                // Mode badge
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isCharging) Color(0xFF10B981).copy(alpha = 0.15f) else Color(0xFFEF4444).copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = if (isCharging) "CONNECTED" else "UNPLUGGED",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isCharging) Color(0xFF10B981) else Color(0xFFEF4444),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
             }
         }
 
-        // Center Pulsing Graphic & Giant Instruction Banner
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
+        // Fixed-Height Bottom Note
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp),
+            contentAlignment = Alignment.Center
         ) {
-            val isActionUnplug = requiredAction == ChargerRequiredAction.UNPLUG
-            val themeColor = if (isActionUnplug) Color(0xFFEF4444) else Color(0xFF10B981)
-
-            Box(
-                modifier = Modifier
-                    .size(170.dp)
-                    .scale(pulseScale)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            listOf(
-                                themeColor.copy(alpha = 0.35f),
-                                themeColor.copy(alpha = 0.05f)
-                            )
-                        )
-                    )
-                    .border(4.dp, themeColor, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isActionUnplug) Icons.Default.PowerOff else Icons.Default.Power,
-                    contentDescription = "Charger Action",
-                    tint = themeColor,
-                    modifier = Modifier.size(80.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Action Card (Sleep-Inertia Friendly Giant Text)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("charger_action_card"),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = themeColor.copy(alpha = 0.15f)),
-                border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(themeColor)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "REQUIRED PHYSICAL ACTION",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black,
-                        color = themeColor,
-                        letterSpacing = 1.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = if (isActionUnplug) "UNPLUG THE CHARGER" else "PLUG IN THE CHARGER",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = if (isActionUnplug) {
-                            "Your phone was charging when the alarm rang. Unplug the cable from your phone to stop the alarm."
-                        } else {
-                            "Your phone is currently not charging. Connect your charger cable to prove you are awake."
-                        },
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-
-        // Live listening notice at bottom
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = null,
-                    tint = Color(0xFFF59E0B),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Listening for hardware power state change in real time...",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = "Alarm automatically dismisses the instant state changes",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

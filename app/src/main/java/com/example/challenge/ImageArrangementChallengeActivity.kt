@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,8 +24,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -142,6 +141,7 @@ class ImageArrangementChallengeActivity : BaseChallengeActivity() {
 
         colsState.value = numCols
         rowsState.value = numRows
+        setFeedbackMessage(null)
 
         // Randomly pick an image from the built-in list
         val item = ImageArrangementData.pickRandomImage(previousResId)
@@ -214,6 +214,7 @@ class ImageArrangementChallengeActivity : BaseChallengeActivity() {
         // Solved if every holding slot is empty and board pieces match their slot indices
         val holdingEmpty = h.all { it == null }
         if (holdingEmpty && isBoardSolved(b)) {
+            setFeedbackMessage("Artwork completed! Stage Passed!", isSuccess = true)
             completeCurrentStage()
         }
     }
@@ -307,34 +308,51 @@ fun ImageArrangementScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val totalWidth = maxWidth
+        val totalHeight = maxHeight
+
+        // Available vertical space for the board: totalHeight minus top bar (36dp) minus holding bar (72dp) minus padding (12dp)
+        val availableBoardW = totalWidth - 16.dp
+        val availableBoardH = (totalHeight - 120.dp).coerceAtLeast(100.dp)
+
+        val tileW = availableBoardW / cols
+        val tileH = availableBoardH / rows
+        val tileSize = minOf(tileW, tileH).coerceIn(34.dp, 84.dp)
+
+        val actualBoardW = tileSize * cols
+        val actualBoardH = tileSize * rows
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 4.dp),
+                .padding(vertical = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header stats & Target reference thumbnail bar
+            // Header stats & Target reference thumbnail bar (fixed height 36dp)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(36.dp)
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text(
-                        text = "STAGE $currentStage: ${totalPieces} PIECES (${cols}x${rows})",
-                        style = MaterialTheme.typography.titleSmall,
+                        text = "Stage $currentStage: ${totalPieces} Pieces (${cols}x${rows})",
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1
                     )
                     Text(
                         text = "Placed Correctly: $matchedCount / $totalPieces",
-                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (matchedCount == totalPieces) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (matchedCount == totalPieces) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
 
@@ -343,155 +361,149 @@ fun ImageArrangementScreen(
                     Card(
                         onClick = { showFullPreview = true },
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(34.dp)
                             .testTag("preview_target_thumbnail"),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(8.dp),
                         border = CardDefaults.outlinedCardBorder().copy(
                             brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Image(
-                                bitmap = bmp,
-                                contentDescription = "Target Picture",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .background(Color.Black.copy(alpha = 0.6f))
-                                    .padding(2.dp)
+                        Image(
+                            bitmap = bmp,
+                            contentDescription = "Target Picture",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+
+            // Main Puzzle Board Grid (weight 1f, strictly non-scrollable, centered)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.size(actualBoardW + 8.dp, actualBoardH + 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(4.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        for (r in 0 until rows) {
+                            Row(
+                                modifier = Modifier.size(actualBoardW, tileSize),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Visibility,
-                                    contentDescription = "View",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(10.dp)
-                                )
+                                for (c in 0 until cols) {
+                                    val slotIndex = r * cols + c
+                                    val pieceId = boardSlots.getOrNull(slotIndex)
+                                    val isMatched = pieceId != null && pieceId == slotIndex
+                                    val isSelected = selectedSlot == SlotTarget.Board(slotIndex)
+                                    val isHovered = hoveredTarget == SlotTarget.Board(slotIndex)
+                                    val isBeingDragged = activeDragOrigin == SlotTarget.Board(slotIndex)
+
+                                    BoardSlotCell(
+                                        slotIndex = slotIndex,
+                                        pieceId = pieceId,
+                                        sliceBitmap = pieceId?.let { slices.getOrNull(it) },
+                                        isMatched = isMatched,
+                                        isSelected = isSelected,
+                                        isHovered = isHovered,
+                                        isBeingDragged = isBeingDragged,
+                                        modifier = Modifier.size(tileSize - 2.dp),
+                                        onPositioned = { rect -> boardBounds[slotIndex] = rect },
+                                        onDragStart = { offset, piece ->
+                                            activeDragOrigin = SlotTarget.Board(slotIndex)
+                                            activeDragPieceId = piece
+                                            dragOffsetByTouch = Offset.Zero
+                                            boardBounds[slotIndex]?.let { b ->
+                                                dragGlobalPosition = b.topLeft + offset
+                                            }
+                                        },
+                                        onDrag = { dragAmount ->
+                                            dragOffsetByTouch += dragAmount
+                                            dragGlobalPosition += dragAmount
+                                            hoveredTarget = findHoveredTarget(dragGlobalPosition)
+                                        },
+                                        onDragEnd = {
+                                            activeDragOrigin?.let { origin ->
+                                                hoveredTarget?.let { target ->
+                                                    handleDrop(origin, target)
+                                                }
+                                            }
+                                            activeDragOrigin = null
+                                            activeDragPieceId = null
+                                            hoveredTarget = null
+                                            selectedSlot = null
+                                        },
+                                        onTap = {
+                                            val currentSel = selectedSlot
+                                            if (currentSel == null) {
+                                                if (pieceId != null) selectedSlot = SlotTarget.Board(slotIndex)
+                                            } else {
+                                                handleDrop(currentSel, SlotTarget.Board(slotIndex))
+                                                selectedSlot = null
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Main Puzzle Board Grid
+            // Dedicated Holding Area Box (fixed height ~68dp)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = false),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant)
-                )
-            ) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(cols),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    userScrollEnabled = false
-                ) {
-                    items(totalPieces) { slotIndex ->
-                        val pieceId = boardSlots.getOrNull(slotIndex)
-                        val isMatched = pieceId != null && pieceId == slotIndex
-                        val isSelected = selectedSlot == SlotTarget.Board(slotIndex)
-                        val isHovered = hoveredTarget == SlotTarget.Board(slotIndex)
-                        val isBeingDragged = activeDragOrigin == SlotTarget.Board(slotIndex)
-
-                        BoardSlotCell(
-                            slotIndex = slotIndex,
-                            pieceId = pieceId,
-                            sliceBitmap = pieceId?.let { slices.getOrNull(it) },
-                            isMatched = isMatched,
-                            isSelected = isSelected,
-                            isHovered = isHovered,
-                            isBeingDragged = isBeingDragged,
-                            onPositioned = { rect -> boardBounds[slotIndex] = rect },
-                            onDragStart = { offset, piece ->
-                                activeDragOrigin = SlotTarget.Board(slotIndex)
-                                activeDragPieceId = piece
-                                dragOffsetByTouch = Offset.Zero
-                                boardBounds[slotIndex]?.let { b ->
-                                    dragGlobalPosition = b.topLeft + offset
-                                }
-                            },
-                            onDrag = { dragAmount ->
-                                dragOffsetByTouch += dragAmount
-                                dragGlobalPosition += dragAmount
-                                hoveredTarget = findHoveredTarget(dragGlobalPosition)
-                            },
-                            onDragEnd = {
-                                activeDragOrigin?.let { origin ->
-                                    hoveredTarget?.let { target ->
-                                        handleDrop(origin, target)
-                                    }
-                                }
-                                activeDragOrigin = null
-                                activeDragPieceId = null
-                                hoveredTarget = null
-                                selectedSlot = null
-                            },
-                            onTap = {
-                                val currentSel = selectedSlot
-                                if (currentSel == null) {
-                                    if (pieceId != null) selectedSlot = SlotTarget.Board(slotIndex)
-                                } else {
-                                    handleDrop(currentSel, SlotTarget.Board(slotIndex))
-                                    selectedSlot = null
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Dedicated Holding Area Box
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                    .height(68.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                 ),
                 border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                 )
             ) {
-                Column(
-                    modifier = Modifier.padding(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "📦 HOLDING AREA (Temporary Storage)",
-                            fontSize = 12.sp,
+                            text = "📦 HOLDING AREA",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1
                         )
                         Text(
-                            text = "${holdingSlots.size} Slot${if (holdingSlots.size > 1) "s" else ""}",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Temporary park slots",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         holdingSlots.forEachIndexed { slotIndex, pieceId ->
@@ -506,6 +518,7 @@ fun ImageArrangementScreen(
                                 isSelected = isSelected,
                                 isHovered = isHovered,
                                 isBeingDragged = isBeingDragged,
+                                modifier = Modifier.size(54.dp),
                                 onPositioned = { rect -> holdingBounds[slotIndex] = rect },
                                 onDragStart = { offset, piece ->
                                     activeDragOrigin = SlotTarget.Holding(slotIndex)
@@ -541,10 +554,6 @@ fun ImageArrangementScreen(
                                     }
                                 }
                             )
-
-                            if (slotIndex < holdingSlots.size - 1) {
-                                Spacer(modifier = Modifier.width(16.dp))
-                            }
                         }
                     }
                 }
@@ -634,6 +643,7 @@ fun BoardSlotCell(
     isSelected: Boolean,
     isHovered: Boolean,
     isBeingDragged: Boolean,
+    modifier: Modifier = Modifier,
     onPositioned: (Rect) -> Unit,
     onDragStart: (Offset, Int) -> Unit,
     onDrag: (Offset) -> Unit,
@@ -647,16 +657,15 @@ fun BoardSlotCell(
         else -> Color.White.copy(alpha = 0.25f)
     }
 
-    val borderWidth = if (isHovered || isSelected) 3.dp else if (isMatched) 2.dp else 1.dp
+    val borderWidth = if (isHovered || isSelected) 2.5.dp else if (isMatched) 2.dp else 1.dp
     val alpha = if (isBeingDragged) 0.3f else 1.0f
 
     Box(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
             .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
             .background(if (pieceId == null) Color(0xFF1E293B) else Color.DarkGray)
-            .border(borderWidth, borderColor, RoundedCornerShape(8.dp))
+            .border(borderWidth, borderColor, RoundedCornerShape(6.dp))
             .clickable { onTap() }
             .pointerInput(pieceId) {
                 if (pieceId != null) {
@@ -725,6 +734,7 @@ fun HoldingSlotCell(
     isSelected: Boolean,
     isHovered: Boolean,
     isBeingDragged: Boolean,
+    modifier: Modifier = Modifier,
     onPositioned: (Rect) -> Unit,
     onDragStart: (Offset, Int) -> Unit,
     onDrag: (Offset) -> Unit,
@@ -742,8 +752,7 @@ fun HoldingSlotCell(
     val alpha = if (isBeingDragged) 0.3f else 1.0f
 
     Box(
-        modifier = Modifier
-            .size(76.dp)
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
             .background(if (pieceId == null) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color.DarkGray)

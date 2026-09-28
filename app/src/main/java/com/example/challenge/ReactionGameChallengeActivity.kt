@@ -1,6 +1,5 @@
 package com.example.challenge
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -12,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,35 +21,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +57,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * Moderate: faster speed, medium zone, 5 hits needed, 60s limit.
  * Difficult: fast speed, small zone, 7 hits needed, 90s limit.
  * Missed tap resets hit count for the current stage without sounding the alarm.
+ *
+ * Strict single-screen non-scrollable layout with weight-based structure.
  */
 class ReactionGameChallengeActivity : BaseChallengeActivity() {
 
@@ -81,12 +73,6 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
 
     private val hitZoneWidthState = MutableStateFlow(0.32f) // Width percentage (0.0 to 1.0)
     val hitZoneWidth = hitZoneWidthState.asStateFlow()
-
-    private val lastFeedbackState = MutableStateFlow<String?>(null)
-    val lastFeedback = lastFeedbackState.asStateFlow()
-
-    private val isLastHitSuccessState = MutableStateFlow(true)
-    val isLastHitSuccess = isLastHitSuccessState.asStateFlow()
 
     override fun getChallengeType(): ChallengeType = ChallengeType.REACTION_GAME
 
@@ -109,7 +95,7 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
         speedDurationMsState.value = duration
         hitZoneWidthState.value = zoneWidth
         currentHitsState.value = 0
-        lastFeedbackState.value = null
+        setFeedbackMessage(null)
     }
 
     override fun onResetToStage1() {
@@ -117,7 +103,7 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
         speedDurationMsState.value = 1800
         hitZoneWidthState.value = 0.32f
         currentHitsState.value = 0
-        lastFeedbackState.value = null
+        setFeedbackMessage(null)
     }
 
     fun onUserTap(targetProgress: Float) {
@@ -130,17 +116,17 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
         if (isHit) {
             val nextHits = currentHitsState.value + 1
             currentHitsState.value = nextHits
-            isLastHitSuccessState.value = true
-            lastFeedbackState.value = "PERFECT HIT! ($nextHits/${targetHitsState.value})"
 
             if (nextHits >= targetHitsState.value) {
+                setFeedbackMessage("PERFECT HIT! ($nextHits/${targetHitsState.value}) - Stage Completed!", isSuccess = true)
                 completeCurrentStage()
+            } else {
+                setFeedbackMessage("PERFECT HIT! ($nextHits/${targetHitsState.value})", isSuccess = true)
             }
         } else {
             // Missed! Reset count for current stage (no alarm re-ring)
             currentHitsState.value = 0
-            isLastHitSuccessState.value = false
-            lastFeedbackState.value = "MISSED! Hit count reset to 0. Try again!"
+            setFeedbackMessage("MISSED! Hit count reset to 0. Try again!", isError = true)
         }
     }
 
@@ -150,8 +136,6 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
         val needed by targetHits.collectAsState()
         val duration by speedDurationMs.collectAsState()
         val zoneW by hitZoneWidth.collectAsState()
-        val feedback by lastFeedback.collectAsState()
-        val isSuccess by isLastHitSuccess.collectAsState()
         val stage by currentStage.collectAsState()
 
         ReactionGameScreen(
@@ -159,8 +143,6 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
             targetHits = needed,
             durationMs = duration,
             hitZoneWidth = zoneW,
-            feedback = feedback,
-            isSuccess = isSuccess,
             currentStage = stage,
             onTapAction = { onUserTap(it) },
             modifier = modifier
@@ -174,8 +156,6 @@ fun ReactionGameScreen(
     targetHits: Int,
     durationMs: Int,
     hitZoneWidth: Float,
-    feedback: String?,
-    isSuccess: Boolean,
     currentStage: Int,
     onTapAction: (Float) -> Unit,
     modifier: Modifier = Modifier
@@ -194,159 +174,95 @@ fun ReactionGameScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Stage Header & Info
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Hits Progress Counter Pill
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Stage $currentStage: $targetHits Consecutive Hits",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = when (currentStage) {
-                                    1 -> "Slow speed • Wide hit zone"
-                                    2 -> "Medium speed • Normal hit zone"
-                                    else -> "Fast speed • Narrow hit zone"
-                                },
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF10B981).copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = "$currentHits / $targetHits HITS",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF10B981),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Feedback Banner
-            AnimatedVisibility(visible = feedback != null) {
-                feedback?.let { msg ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSuccess) Color(0xFF065F46) else MaterialTheme.colorScheme.errorContainer
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (isSuccess) Icons.Default.Check else Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = if (isSuccess) Color(0xFF10B981) else MaterialTheme.colorScheme.error
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = msg,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSuccess) Color(0xFFE6FFFA) else MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-            }
+            Text(
+                text = "Target: $currentHits of $targetHits Consecutive Hits",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF10B981)
+            )
         }
 
-        // Reaction Track Canvas Card
-        Card(
+        // Main Track Area (weight 1f, strictly non-scrollable)
+        BoxWithConstraints(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp)
-                .testTag("reaction_track_card"),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-            )
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
+            val totalHeight = maxHeight
+            val cardPadding = if (totalHeight < 240.dp) 10.dp else 16.dp
+            val trackHeight = if (totalHeight < 240.dp) 60.dp else 76.dp
+
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "TARGET HIT ZONE",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF10B981),
-                    letterSpacing = 1.sp
+                    .padding(horizontal = 4.dp)
+                    .testTag("reaction_track_card"),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                 )
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // The Running Bar Canvas
-                ReactionTrackCanvas(
-                    targetProgress = targetPosition,
-                    hitZoneWidth = hitZoneWidth,
+            ) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
-                )
+                        .padding(cardPadding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "TARGET HIT ZONE",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF10B981),
+                        letterSpacing = 1.sp
+                    )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                Text(
-                    text = "Tap when the glowing target enters the green zone!",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+                    // The Running Bar Canvas
+                    ReactionTrackCanvas(
+                        targetProgress = targetPosition,
+                        hitZoneWidth = hitZoneWidth,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(trackHeight)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Tap button below when circle enters the green zone!",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
 
-        // Giant Tactile Action Button for Sleep-Inertia
+        // Giant Tactile Action Button for Sleep-Inertia (Fixed height, never shifts)
         Button(
             onClick = { onTapAction(targetPosition) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(72.dp)
+                .height(68.dp)
                 .testTag("tap_reaction_button"),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF2563EB)
             ),
@@ -383,7 +299,7 @@ fun ReactionTrackCanvas(
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
-        val trackHeight = 24.dp.toPx()
+        val trackHeight = 22.dp.toPx()
         val trackTop = (h - trackHeight) / 2f
 
         // 1. Background Track
@@ -425,7 +341,7 @@ fun ReactionTrackCanvas(
         // 3. Moving Target Circle
         val targetX = w * targetProgress
         val targetY = h / 2f
-        val targetRadius = 18.dp.toPx()
+        val targetRadius = 16.dp.toPx()
 
         // Outer glow
         drawCircle(

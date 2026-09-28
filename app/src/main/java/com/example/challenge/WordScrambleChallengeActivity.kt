@@ -1,12 +1,11 @@
 package com.example.challenge
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -18,43 +17,26 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.QuestionMark
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ChallengeType
@@ -67,6 +49,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * Low: 4 letters, 30s.
  * Moderate: 5-6 letters, 45s.
  * Difficult: 7+ letters, 60s.
+ *
+ * Strict single-screen non-scrollable layout with weight-based structure.
  */
 class WordScrambleChallengeActivity : BaseChallengeActivity() {
 
@@ -117,6 +101,7 @@ class WordScrambleChallengeActivity : BaseChallengeActivity() {
         // Scrambled letter tiles paired with a unique key
         scrambledTilesState.value = scrambled.mapIndexed { idx, char -> idx to char }
         selectedTileIndicesState.value = emptyList()
+        setFeedbackMessage(null)
     }
 
     fun onTileTapped(tileIndex: Int) {
@@ -134,11 +119,13 @@ class WordScrambleChallengeActivity : BaseChallengeActivity() {
         if (selectionIndex in current.indices) {
             current.removeAt(selectionIndex)
             selectedTileIndicesState.value = current
+            setFeedbackMessage(null)
         }
     }
 
     fun onClearAll() {
         selectedTileIndicesState.value = emptyList()
+        setFeedbackMessage(null)
     }
 
     private fun checkWordSolved(selected: List<Int>) {
@@ -149,7 +136,12 @@ class WordScrambleChallengeActivity : BaseChallengeActivity() {
 
         val target = targetWordState.value
         if (assembledString == target) {
+            setFeedbackMessage("CORRECT WORD! Stage Passed!", isSuccess = true)
             completeCurrentStage()
+        } else if (selected.size == tiles.size) {
+            setFeedbackMessage("Incorrect word! Tap a tile to change or tap Clear.", isError = true)
+        } else {
+            setFeedbackMessage(null)
         }
     }
 
@@ -188,230 +180,199 @@ fun WordScrambleScreen(
     onClear: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scrollState = rememberScrollState()
-
-    // Formed word string
     val assembledTiles = selectedTileIndices.mapNotNull { selIdx ->
         scrambledTiles.firstOrNull { it.first == selIdx }?.second
     }
     val assembledWord = assembledTiles.joinToString("")
-    val isCompleteLength = assembledTiles.size == scrambledTiles.size
     val isMatch = assembledWord == targetWord
-    val isWrongComplete = isCompleteLength && !isMatch
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Main Play Area (weight 1f, strictly non-scrollable)
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
-            // Stage and Language Info Banner
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            val totalWidth = maxWidth
+            val totalHeight = maxHeight
+
+            // Dynamically calculate tile sizes based on count
+            val letterCount = scrambledTiles.size.coerceAtLeast(4)
+            val availableTileW = ((totalWidth - 36.dp) / letterCount).coerceIn(36.dp, 58.dp)
+            val availableTileH = (totalHeight * 0.16f).coerceIn(36.dp, 58.dp)
+            val dynamicTileSize = minOf(availableTileW, availableTileH)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
             ) {
+                // Subtle language & letter count pill
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.TextFields,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Stage $currentStage • ${scrambledTiles.size} Letters",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = language,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Assembled Word Box (Current User Construction)
-            Text(
-                text = "YOUR ASSEMBLED WORD (TAP TO REMOVE)",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("assembled_word_card"),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = when {
-                        isMatch -> Color(0xFF065F46)
-                        isWrongComplete -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                        else -> MaterialTheme.colorScheme.surface
-                    }
-                ),
-                border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(
-                        when {
-                            isMatch -> Color(0xFF10B981)
-                            isWrongComplete -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        }
+                    Text(
+                        text = "Word in $language • ${scrambledTiles.size} Letters",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
+                }
+
+                // Section 1: User's Assembled Word Slot
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (assembledTiles.isEmpty()) {
-                        Text(
-                            text = "Tap letters below in order",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-                    } else {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalArrangement = Arrangement.Center
+                    Text(
+                        text = "YOUR ASSEMBLED WORD (TAP TO REMOVE)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("assembled_word_card"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = when {
+                                isMatch -> Color(0xFF065F46)
+                                else -> MaterialTheme.colorScheme.surface
+                            }
+                        ),
+                        border = CardDefaults.outlinedCardBorder().copy(
+                            brush = androidx.compose.ui.graphics.SolidColor(
+                                when {
+                                    isMatch -> Color(0xFF10B981)
+                                    else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                }
+                            )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            assembledTiles.forEachIndexed { index, letter ->
-                                Box(
-                                    modifier = Modifier
-                                        .padding(4.dp)
-                                        .size(52.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isMatch) Color(0xFF10B981) else MaterialTheme.colorScheme.primaryContainer)
-                                        .border(
-                                            2.dp,
-                                            if (isMatch) Color.White else MaterialTheme.colorScheme.primary,
-                                            RoundedCornerShape(12.dp)
-                                        )
-                                        .clickable { onRemoveTile(index) },
-                                    contentAlignment = Alignment.Center
+                            if (assembledTiles.isEmpty()) {
+                                Text(
+                                    text = "Tap letters below in order",
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            } else {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalArrangement = Arrangement.Center
                                 ) {
-                                    Text(
-                                        text = letter,
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = if (isMatch) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                    assembledTiles.forEachIndexed { index, letter ->
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(3.dp)
+                                                .size(dynamicTileSize)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(if (isMatch) Color(0xFF10B981) else MaterialTheme.colorScheme.primaryContainer)
+                                                .border(
+                                                    1.5.dp,
+                                                    if (isMatch) Color.White else MaterialTheme.colorScheme.primary,
+                                                    RoundedCornerShape(10.dp)
+                                                )
+                                                .clickable { onRemoveTile(index) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = letter,
+                                                fontSize = (dynamicTileSize.value * 0.44f).sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = if (isMatch) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-
-                    // Live verification feedback
-                    if (isWrongComplete) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Incorrect word! Tap letters to change or tap Clear.",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    } else if (isMatch) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "CORRECT WORD! Advancing...",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF10B981)
-                        )
-                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                // Section 2: Scrambled Letter Tiles
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "AVAILABLE TILES (TAP TO SELECT)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
 
-            // Scrambled Letter Tiles to Choose From
-            Text(
-                text = "AVAILABLE TILES (TAP TO SELECT)",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary,
-                letterSpacing = 1.sp
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalArrangement = Arrangement.Center
-            ) {
-                scrambledTiles.forEach { (tileIndex, letter) ->
-                    val isUsed = selectedTileIndices.contains(tileIndex)
-
-                    Box(
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(62.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                if (isUsed) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                                else MaterialTheme.colorScheme.primary
-                            )
-                            .border(
-                                width = if (isUsed) 1.dp else 2.dp,
-                                color = if (isUsed) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                            .clickable(enabled = !isUsed) { onTileTapped(tileIndex) }
-                            .testTag("scramble_tile_$tileIndex"),
-                        contentAlignment = Alignment.Center
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = letter,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Black,
-                            color = if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f) else Color.White
-                        )
+                        scrambledTiles.forEach { (tileIndex, letter) ->
+                            val isUsed = selectedTileIndices.contains(tileIndex)
+
+                            Box(
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .size(dynamicTileSize)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (isUsed) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                                        else MaterialTheme.colorScheme.primary
+                                    )
+                                    .border(
+                                        width = if (isUsed) 1.dp else 2.dp,
+                                        color = if (isUsed) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable(enabled = !isUsed) { onTileTapped(tileIndex) }
+                                    .testTag("scramble_tile_$tileIndex"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = letter,
+                                    fontSize = (dynamicTileSize.value * 0.44f).sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (isUsed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f) else Color.White
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Action Buttons (Clear & Backspace)
+        // Fixed-Height Bottom Action Row (Never shifts or scrolls)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp),
+                .height(52.dp)
+                .padding(vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             OutlinedButton(
@@ -419,13 +380,13 @@ fun WordScrambleScreen(
                 enabled = selectedTileIndices.isNotEmpty(),
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
+                    .fillMaxSize()
                     .testTag("clear_word_button"),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Clear", fontWeight = FontWeight.Bold)
+                Text("Clear", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
 
             Button(
@@ -437,13 +398,13 @@ fun WordScrambleScreen(
                 enabled = selectedTileIndices.isNotEmpty(),
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
+                    .fillMaxSize()
                     .testTag("backspace_word_button"),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Icon(Icons.Default.Backspace, contentDescription = "Backspace")
+                Icon(Icons.Default.Backspace, contentDescription = "Backspace", modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Backspace", fontWeight = FontWeight.Bold)
+                Text("Backspace", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         }
     }

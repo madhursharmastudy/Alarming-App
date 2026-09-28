@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -195,7 +196,7 @@ fun AlarmRingingScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(24.dp),
+                .padding(horizontal = 18.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -205,84 +206,99 @@ fun AlarmRingingScreen(
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color(0xFFEF4444).copy(alpha = 0.2f))
                     .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = "Locked",
                     tint = Color(0xFFEF4444),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "LOCKED: 3-STAGE DISMISSAL",
+                    text = if (challengeType == ChallengeType.CHARGER) "LOCKED: ACTION REQUIRED" else "LOCKED: 3-STAGE DISMISSAL",
                     fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = Color(0xFFFCA5A5)
                 )
             }
 
-            // Central Branding & Alarm Clock Visual
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Central Branding & Alarm Clock Visual (weight 1f, strictly non-scrollable)
+            BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(160.dp)
-                        .scale(pulseScale)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                listOf(Color(0xFFEF4444), Color(0xFF7F1D1D))
-                            )
-                        )
-                        .border(4.dp, Color(0xFFFCA5A5), CircleShape),
-                    contentAlignment = Alignment.Center
+                val totalH = maxHeight
+                val logoSize = minOf(totalH * 0.28f, 130.dp).coerceAtLeast(64.dp)
+                val clockSize = if (totalH < 320.dp) 38.sp else 50.sp
+                val amPmSize = if (totalH < 320.dp) 18.sp else 22.sp
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.force_alarm_logo),
-                        contentDescription = "ForceAlarm Logo",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                    Box(
+                        modifier = Modifier
+                            .size(logoSize)
+                            .scale(pulseScale)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(Color(0xFFEF4444), Color(0xFF7F1D1D))
+                                )
+                            )
+                            .border(3.dp, Color(0xFFFCA5A5), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.force_alarm_logo),
+                            contentDescription = "ForceAlarm Logo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = timeFormat.format(now),
+                            fontSize = clockSize,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = amPmFormat.format(now),
+                            fontSize = amPmSize,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFCA5A5),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                    }
+
+                    Text(
+                        text = dateFormat.format(now),
+                        fontSize = 14.sp,
+                        color = Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = alarmLabel,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF38BDF8),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
                     )
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = timeFormat.format(now),
-                        fontSize = 54.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = amPmFormat.format(now),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFCA5A5),
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    )
-                }
-
-                Text(
-                    text = dateFormat.format(now),
-                    fontSize = 15.sp,
-                    color = Color(0xFF94A3B8),
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = alarmLabel,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF38BDF8),
-                    textAlign = TextAlign.Center
-                )
             }
 
             // Challenge Requirement Info Card & Action Button
@@ -293,42 +309,44 @@ fun AlarmRingingScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(Color(0xFF3B82F6), Color(0xFF8B5CF6))))
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = "REQUIRED CHALLENGE",
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF94A3B8)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = challengeType.displayName,
-                            fontSize = 18.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "3-Stage Progressive • Auto-Silences on Start",
-                            fontSize = 12.sp,
-                            color = Color(0xFF38BDF8)
+                            text = if (challengeType == ChallengeType.CHARGER) "Physical Sensor Action • Auto-Silences on Start" else "3-Stage Progressive • Auto-Silences on Start",
+                            fontSize = 11.sp,
+                            color = Color(0xFF38BDF8),
+                            maxLines = 1
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Button(
                     onClick = onStartChallenge,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
+                        .height(56.dp)
                         .testTag("start_challenge_button"),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                     shape = RoundedCornerShape(16.dp)
@@ -339,7 +357,7 @@ fun AlarmRingingScreen(
                     ) {
                         Text(
                             text = "Start Challenge (Silence Alarm)",
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
                             color = Color.White
                         )
@@ -347,7 +365,8 @@ fun AlarmRingingScreen(
                         Icon(
                             imageVector = Icons.Default.ArrowForward,
                             contentDescription = "Start",
-                            tint = Color.White
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

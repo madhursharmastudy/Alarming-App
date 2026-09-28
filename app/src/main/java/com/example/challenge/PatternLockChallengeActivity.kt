@@ -1,42 +1,30 @@
 package com.example.challenge
 
-import android.graphics.PointF
 import android.os.CountDownTimer
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,11 +46,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ChallengeType
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.hypot
@@ -75,6 +61,8 @@ import kotlin.random.Random
  * Low: 4 dots, 45s.
  * Moderate: 6 dots, 60s.
  * Difficult: 8-9 dots, 90s.
+ *
+ * Strict single-screen non-scrollable layout with weight-based structure.
  */
 class PatternLockChallengeActivity : BaseChallengeActivity() {
 
@@ -96,9 +84,6 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
     // Can only use "Show again" once per stage
     private val canShowAgainState = MutableStateFlow(true)
     val canShowAgain = canShowAgainState.asStateFlow()
-
-    private val isWrongPatternState = MutableStateFlow(false)
-    val isWrongPattern = isWrongPatternState.asStateFlow()
 
     private var previewTimer: CountDownTimer? = null
 
@@ -132,7 +117,6 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
         val pattern = generateValidPattern(dotCount)
         targetPatternState.value = pattern
         userPatternState.value = emptyList()
-        isWrongPatternState.value = false
 
         startPreviewCountdown(5)
     }
@@ -141,15 +125,19 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
         previewTimer?.cancel()
         isPreviewActiveState.value = true
         previewSecondsLeftState.value = seconds
+        setFeedbackMessage("Memorize pattern! Hiding in ${seconds}s")
 
         previewTimer = object : CountDownTimer((seconds * 1000).toLong(), 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                previewSecondsLeftState.value = ((millisUntilFinished / 1000) + 1).toInt()
+                val secLeft = ((millisUntilFinished / 1000) + 1).toInt()
+                previewSecondsLeftState.value = secLeft
+                setFeedbackMessage("Memorize pattern! Hiding in ${secLeft}s")
             }
 
             override fun onFinish() {
                 isPreviewActiveState.value = false
                 previewSecondsLeftState.value = 0
+                setFeedbackMessage("Redraw the pattern from memory")
             }
         }.start()
     }
@@ -158,44 +146,32 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
         if (!canShowAgainState.value || isPreviewActiveState.value) return
         canShowAgainState.value = false
         userPatternState.value = emptyList()
-        isWrongPatternState.value = false
-        startPreviewCountdown(4) // 4 seconds peek
+        startPreviewCountdown(4)
     }
 
-    /**
-     * Generates a valid pattern connecting adjacent or valid unvisited dots
-     */
     private fun generateValidPattern(length: Int): List<Int> {
         val pattern = mutableListOf<Int>()
-        var current = (0..8).random()
-        pattern.add(current)
+        val startDot = Random.nextInt(9)
+        pattern.add(startDot)
 
+        fun areAdjacentOrDirect(a: Int, b: Int): Boolean {
+            val ax = a % 3
+            val ay = a / 3
+            val bx = b % 3
+            val by = b / 3
+            val dx = kotlin.math.abs(ax - bx)
+            val dy = kotlin.math.abs(ay - by)
+            return (dx <= 1 && dy <= 1) || (dx == 1 && dy == 2) || (dx == 2 && dy == 1)
+        }
+
+        var current = startDot
         while (pattern.size < length) {
-            // Get neighbors
-            val r = current / 3
-            val c = current % 3
-            val candidates = mutableListOf<Int>()
-
-            for (dr in -1..1) {
-                for (dc in -1..1) {
-                    if (dr == 0 && dc == 0) continue
-                    val nr = r + dr
-                    val nc = c + dc
-                    if (nr in 0..2 && nc in 0..2) {
-                        val neighbor = nr * 3 + nc
-                        if (!pattern.contains(neighbor)) {
-                            candidates.add(neighbor)
-                        }
-                    }
-                }
-            }
-
+            val candidates = (0..8).filter { it !in pattern && areAdjacentOrDirect(current, it) }
             if (candidates.isNotEmpty()) {
                 current = candidates.random()
                 pattern.add(current)
             } else {
-                // If cornered, pick any unvisited dot
-                val remaining = (0..8).filter { !pattern.contains(it) }
+                val remaining = (0..8).filter { it !in pattern }
                 if (remaining.isNotEmpty()) {
                     current = remaining.random()
                     pattern.add(current)
@@ -214,13 +190,12 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
     fun onUserPatternCompleted(pattern: List<Int>) {
         val target = targetPatternState.value
         if (pattern == target) {
-            isWrongPatternState.value = false
+            setFeedbackMessage("Pattern verified! Stage Completed!", isSuccess = true)
             completeCurrentStage()
         } else {
             // Wrong pattern -> regenerate fresh pattern to prevent guessing, let user retry
-            isWrongPatternState.value = true
+            setFeedbackMessage("Pattern mismatch! Memorize new pattern to retry.", isError = true)
             userPatternState.value = emptyList()
-            // Regenerate pattern for retry
             val dotCount = target.size
             val freshPattern = generateValidPattern(dotCount)
             targetPatternState.value = freshPattern
@@ -240,7 +215,6 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
         val isPreview by isPreviewActive.collectAsState()
         val previewSec by previewSecondsLeft.collectAsState()
         val canShow by canShowAgain.collectAsState()
-        val isWrong by isWrongPattern.collectAsState()
         val stage by currentStage.collectAsState()
 
         PatternLockScreen(
@@ -249,7 +223,6 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
             isPreview = isPreview,
             previewSec = previewSec,
             canShowAgain = canShow,
-            isWrong = isWrong,
             currentStage = stage,
             onPatternUpdate = { onUserPatternUpdated(it) },
             onPatternComplete = { onUserPatternCompleted(it) },
@@ -266,7 +239,6 @@ fun PatternLockScreen(
     isPreview: Boolean,
     previewSec: Int,
     canShowAgain: Boolean,
-    isWrong: Boolean,
     currentStage: Int,
     onPatternUpdate: (List<Int>) -> Unit,
     onPatternComplete: (List<Int>) -> Unit,
@@ -274,181 +246,128 @@ fun PatternLockScreen(
     modifier: Modifier = Modifier
 ) {
     var touchPoint by remember { mutableStateOf<Offset?>(null) }
-    var activeDrawnPattern = remember { mutableStateListOf<Int>() }
+    val activeDrawnPattern = remember { mutableStateListOf<Int>() }
 
     // Synchronize drawn pattern when userPattern resets
     LaunchedEffect(userPattern) {
         if (userPattern.isEmpty()) {
             activeDrawnPattern.clear()
+            touchPoint = null
         }
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Stage & Instruction Header
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Pattern Dots Target Pill
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Stage $currentStage: ${targetPattern.size} Dots Memory",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = if (isPreview) "Memorize the pattern! Hiding in ${previewSec}s" else "Redraw the pattern from memory",
-                            fontSize = 11.sp,
-                            color = if (isPreview) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = if (isPreview) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-
-                    if (isPreview) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFF59E0B).copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                text = "MEMORIZE: ${previewSec}s",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFFF59E0B),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Notice badge if wrong
-            AnimatedVisibility(visible = isWrong && !isPreview) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Pattern mismatch! Memorize new pattern to retry.",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                }
-            }
+            Text(
+                text = if (isPreview) "MEMORIZE: ${targetPattern.size} Dots (${previewSec}s left)" else "CONNECT: ${targetPattern.size} Dots Required",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isPreview) Color(0xFFF59E0B) else MaterialTheme.colorScheme.primary
+            )
         }
 
-        // 3x3 Dot Grid Pattern Canvas
-        Card(
+        // 3x3 Dot Grid Pattern Canvas Area (weight 1f, strictly non-scrollable, calculated from BoxWithConstraints)
+        BoxWithConstraints(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .padding(horizontal = 12.dp)
-                .testTag("pattern_lock_card"),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(
-                    if (isPreview) Color(0xFFF59E0B) else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                )
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
+            val totalW = maxWidth - 16.dp
+            val totalH = maxHeight - 12.dp
+            val patternSize = minOf(totalW, totalH).coerceAtLeast(160.dp)
+
+            Card(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp),
-                contentAlignment = Alignment.Center
+                    .size(patternSize)
+                    .testTag("pattern_lock_card"),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(
+                        if (isPreview) Color(0xFFF59E0B) else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                PatternGridCanvas(
-                    patternToShow = if (isPreview) targetPattern else activeDrawnPattern.toList(),
-                    isPreview = isPreview,
-                    currentTouch = if (!isPreview) touchPoint else null,
-                    onTouchStart = { offset ->
-                        if (!isPreview) {
-                            activeDrawnPattern.clear()
-                            touchPoint = offset
-                        }
-                    },
-                    onTouchMove = { offset, hitDot ->
-                        if (!isPreview) {
-                            touchPoint = offset
-                            if (hitDot != null && !activeDrawnPattern.contains(hitDot)) {
-                                activeDrawnPattern.add(hitDot)
-                                onPatternUpdate(activeDrawnPattern.toList())
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    PatternGridCanvas(
+                        patternToShow = if (isPreview) targetPattern else activeDrawnPattern.toList(),
+                        isPreview = isPreview,
+                        currentTouch = if (!isPreview) touchPoint else null,
+                        onTouchStart = { offset ->
+                            if (!isPreview) {
+                                activeDrawnPattern.clear()
+                                touchPoint = offset
+                            }
+                        },
+                        onTouchMove = { offset, hitDot ->
+                            if (!isPreview) {
+                                touchPoint = offset
+                                if (hitDot != null && !activeDrawnPattern.contains(hitDot)) {
+                                    activeDrawnPattern.add(hitDot)
+                                    onPatternUpdate(activeDrawnPattern.toList())
+                                }
+                            }
+                        },
+                        onTouchEnd = {
+                            if (!isPreview && activeDrawnPattern.isNotEmpty()) {
+                                touchPoint = null
+                                onPatternComplete(activeDrawnPattern.toList())
                             }
                         }
-                    },
-                    onTouchEnd = {
-                        if (!isPreview && activeDrawnPattern.isNotEmpty()) {
-                            touchPoint = null
-                            onPatternComplete(activeDrawnPattern.toList())
-                        }
-                    }
-                )
+                    )
+                }
             }
         }
 
-        // Bottom Action Bar: Show Again button & Dots count
-        Column(
+        // Fixed-Height Bottom Action Row
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .height(48.dp)
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isPreview) "Revealing..." else "Connected: ${activeDrawnPattern.size} / ${targetPattern.size} dots",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Text(
+                text = if (isPreview) "Revealing..." else "Connected: ${activeDrawnPattern.size} / ${targetPattern.size} dots",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-                OutlinedButton(
-                    onClick = onShowAgain,
-                    enabled = canShowAgain && !isPreview,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.testTag("show_pattern_again_button")
-                ) {
-                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (canShowAgain) "Show Again (1 left)" else "Show Used",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            OutlinedButton(
+                onClick = onShowAgain,
+                enabled = canShowAgain && !isPreview,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.testTag("show_pattern_again_button")
+            ) {
+                Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (canShowAgain) "Show Again (1 left)" else "Show Used",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
