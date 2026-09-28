@@ -1,0 +1,44 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Amber Desert Sky -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#FEF3C7" />
+    <path
+        android:pathData="M0,200 h600 v600 h-600 Z"
+        android:fillColor="#FDE68A" />
+    <path
+        android:pathData="M0,380 h600 v420 h-600 Z"
+        android:fillColor="#FCD34D" />
+    <!-- Giant Radiant Sunburst Rays -->
+    <path
+        android:pathData="M300,420 L150,100 L200,80 Z M300,420 L270,60 L330,60 Z M300,420 L400,80 L450,100 Z M300,420 L50,220 L70,270 Z M300,420 L530,270 L550,220 Z"
+        android:fillColor="#F59E0B" />
+    <!-- Sun Disk -->
+    <path
+        android:pathData="M300,420 m-90,0 a90,90 0 1,0 180,0 a90,90 0 1,0 -180,0"
+        android:fillColor="#EF4444" />
+    <!-- Back Sand Dunes -->
+    <path
+        android:pathData="M0,520 Q180,440 380,530 Q480,570 600,500 L600,800 L0,800 Z"
+        android:fillColor="#EA580C" />
+    <!-- Middle Sand Dunes -->
+    <path
+        android:pathData="M0,600 Q260,540 440,630 Q540,670 600,620 L600,800 L0,800 Z"
+        android:fillColor="#C2410C" />
+    <!-- Foreground Dunes -->
+    <path
+        android:pathData="M0,680 Q160,630 360,710 Q500,750 600,690 L600,800 L0,800 Z"
+        android:fillColor="#9A3412" />
+    <!-- Saguaro Cactus Silhouette Left -->
+    <path
+        android:pathData="M110,480 v180 h20 v-180 a10,10 0 0,0 -20,0 Z M90,540 h20 v20 h-20 a10,10 0 0,1 -10,-10 v-40 a10,10 0 0,1 20,0 v30 Z M130,520 h20 v20 h-20 a10,10 0 0,0 10,-10 v-30 a10,10 0 0,0 -20,0 v20 Z"
+        android:fillColor="#431407" />
+    <!-- Small Cactus Right -->
+    <path
+        android:pathData="M480,560 v100 h16 v-100 a8,8 0 0,0 -16,0 Z M465,600 h15 v15 h-15 a8,8 0 0,1 -8,-8 v-20 a8,8 0 0,1 16,0 v13 Z M496,590 h15 v15 h-15 a8,8 0 0,0 8,-8 v-15 a8,8 0 0,0 -16,0 v8 Z"
+        android:fillColor="#431407" />
+</vector>

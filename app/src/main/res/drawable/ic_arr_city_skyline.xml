@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#090D16" />
+    <!-- Gradient Sky Background -->
+    <path
+        android:pathData="M0,200 h600 v600 h-600 Z"
+        android:fillColor="#1E1B4B" />
+    <path
+        android:pathData="M0,360 h600 v440 h-600 Z"
+        android:fillColor="#4F46E5" />
+    <path
+        android:pathData="M0,480 h600 v320 h-600 Z"
+        android:fillColor="#F43F5E" />
+    <path
+        android:pathData="M0,580 h600 v220 h-600 Z"
+        android:fillColor="#FBBF24" />
+    <!-- Rising Sun over Metropolis -->
+    <path
+        android:pathData="M300,540 m-110,0 a110,110 0 1,0 220,0 a110,110 0 1,0 -220,0"
+        android:fillColor="#FEF08A" />
+    <!-- Background Skyscrapers -->
+    <path
+        android:pathData="M40,460 h70 v340 h-70 Z M130,420 h60 v380 h-60 Z M220,380 h80 v420 h-80 Z M330,400 h75 v400 h-75 Z M430,440 h80 v360 h-80 Z M530,480 h50 v320 h-50 Z"
+        android:fillColor="#1E293B" />
+    <!-- Foreground High-Rise Towers -->
+    <path
+        android:pathData="M0,560 h60 v240 h-60 Z M80,500 h85 v300 h-85 Z M190,460 h100 v340 h-100 Z M310,480 h90 v320 h-90 Z M420,510 h80 v290 h-80 Z M520,530 h80 v270 h-80 Z"
+        android:fillColor="#0F172A" />
+    <!-- Tower Antennas -->
+    <path
+        android:pathData="M240,460 v-70 M355,480 v-90"
+        android:strokeColor="#F43F5E"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+    <!-- Lit Windows (Yellow & Cyan Dots) -->
+    <path
+        android:pathData="M100,520 h10 v12 h-10 Z M120,520 h10 v12 h-10 Z M140,520 h10 v12 h-10 Z M100,550 h10 v12 h-10 Z M140,550 h10 v12 h-10 Z M210,500 h12 v15 h-12 Z M235,500 h12 v15 h-12 Z M260,500 h12 v15 h-12 Z M210,540 h12 v15 h-12 Z M260,540 h12 v15 h-12 Z M330,520 h12 v15 h-12 Z M360,520 h12 v15 h-12 Z M440,540 h10 v14 h-10 Z M470,540 h10 v14 h-10 Z"
+        android:fillColor="#FEF08A" />
+    <path
+        android:pathData="M120,580 h10 v12 h-10 Z M235,580 h12 v15 h-12 Z M345,560 h12 v15 h-12 Z M455,580 h10 v14 h-10 Z"
+        android:fillColor="#38BDF8" />
+    <!-- Highway with Streaking Lights at Bottom -->
+    <path
+        android:pathData="M0,740 h600 v60 h-600 Z"
+        android:fillColor="#020617" />
+    <path
+        android:pathData="M0,760 h600 v4 h-600 Z"
+        android:fillColor="#EF4444" />
+    <path
+        android:pathData="M0,775 h600 v4 h-600 Z"
+        android:fillColor="#FBBF24" />
+</vector>

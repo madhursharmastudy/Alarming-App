@@ -1,0 +1,63 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Sky background -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#1E1B4B" />
+    <!-- Radiant Morning Sky Gradient Layers -->
+    <path
+        android:pathData="M0,250 h600 v550 h-600 Z"
+        android:fillColor="#4338CA" />
+    <path
+        android:pathData="M0,380 h600 v420 h-600 Z"
+        android:fillColor="#C026D3" />
+    <path
+        android:pathData="M0,480 h600 v320 h-600 Z"
+        android:fillColor="#F97316" />
+    <path
+        android:pathData="M0,560 h600 v240 h-600 Z"
+        android:fillColor="#FBBF24" />
+    <!-- Rising Sun Rays -->
+    <path
+        android:pathData="M300,520 L100,200 L160,180 Z"
+        android:fillColor="#FEF08A" />
+    <path
+        android:pathData="M300,520 L250,150 L310,140 Z"
+        android:fillColor="#FEF08A" />
+    <path
+        android:pathData="M300,520 L400,160 L450,200 Z"
+        android:fillColor="#FEF08A" />
+    <path
+        android:pathData="M300,520 L480,260 L520,310 Z"
+        android:fillColor="#FEF08A" />
+    <!-- Giant Glowing Sun -->
+    <path
+        android:pathData="M300,520 m-120,0 a120,120 0 1,0 240,0 a120,120 0 1,0 -240,0"
+        android:fillColor="#FFFBEB" />
+    <!-- Back Mountain Range -->
+    <path
+        android:pathData="M0,580 L180,430 L360,570 L520,440 L600,510 L600,800 L0,800 Z"
+        android:fillColor="#312E81" />
+    <!-- Middle Mountain Range -->
+    <path
+        android:pathData="M0,640 L140,510 L300,640 L450,500 L600,630 L600,800 L0,800 Z"
+        android:fillColor="#1E1B4B" />
+    <!-- Snowcaps -->
+    <path
+        android:pathData="M140,510 L100,550 L180,550 Z"
+        android:fillColor="#E0E7FF" />
+    <path
+        android:pathData="M450,500 L410,540 L490,540 Z"
+        android:fillColor="#E0E7FF" />
+    <!-- Foreground Foothills and Pine Trees -->
+    <path
+        android:pathData="M0,700 Q300,650 600,700 L600,800 L0,800 Z"
+        android:fillColor="#0F172A" />
+    <!-- Pines -->
+    <path
+        android:pathData="M60,670 L40,730 L80,730 Z M120,650 L95,720 L145,720 Z M500,660 L475,730 L525,730 Z M550,680 L530,740 L570,740 Z"
+        android:fillColor="#22C55E" />
+</vector>

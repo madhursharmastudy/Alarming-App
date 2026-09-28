@@ -1,0 +1,61 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Dawn Sky -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#0C4A6E" />
+    <path
+        android:pathData="M0,260 h600 v540 h-600 Z"
+        android:fillColor="#0369A1" />
+    <path
+        android:pathData="M0,420 h600 v380 h-600 Z"
+        android:fillColor="#F97316" />
+    <path
+        android:pathData="M0,500 h600 v300 h-600 Z"
+        android:fillColor="#FBBF24" />
+    <!-- Lighthouse Light Beam (Yellow Cone) -->
+    <path
+        android:pathData="M230,225 L600,80 L600,320 Z"
+        android:fillColor="#FEF08A" />
+    <!-- Rocky Cliff -->
+    <path
+        android:pathData="M80,520 L260,520 L280,800 L0,800 L0,580 Z"
+        android:fillColor="#334155" />
+    <!-- Lighthouse Tower Body -->
+    <path
+        android:pathData="M160,520 L180,240 L220,240 L240,520 Z"
+        android:fillColor="#F8FAFC" />
+    <!-- Red Bands on Lighthouse -->
+    <path
+        android:pathData="M174,310 L186,240 L214,240 L226,310 Z"
+        android:fillColor="#EF4444" />
+    <path
+        android:pathData="M168,420 L172,370 L228,370 L232,420 Z"
+        android:fillColor="#EF4444" />
+    <!-- Lantern Room & Dome -->
+    <path
+        android:pathData="M180,240 h40 v-20 h-40 Z"
+        android:fillColor="#1E293B" />
+    <path
+        android:pathData="M185,220 a15,15 0 0,1 30,0 Z"
+        android:fillColor="#DC2626" />
+    <!-- Ocean Waves (Navy & Turquoise) -->
+    <path
+        android:pathData="M260,560 Q340,540 420,560 Q500,580 600,560 L600,800 L260,800 Z"
+        android:fillColor="#0369A1" />
+    <path
+        android:pathData="M240,640 Q360,610 480,640 Q540,660 600,640 L600,800 L240,800 Z"
+        android:fillColor="#075985" />
+    <path
+        android:pathData="M260,720 Q380,690 500,720 Q550,735 600,720 L600,800 L260,800 Z"
+        android:fillColor="#0C4A6E" />
+    <!-- Wave Crest Foam -->
+    <path
+        android:pathData="M270,555 Q340,535 410,555 M430,555 Q510,575 590,555"
+        android:strokeColor="#E0F2FE"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+</vector>

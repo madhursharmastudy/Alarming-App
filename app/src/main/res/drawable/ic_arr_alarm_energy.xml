@@ -1,0 +1,93 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Dark Tech / Force Background -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#090D16" />
+    <!-- Dynamic Glowing Radial Aura -->
+    <path
+        android:pathData="M300,400 m-260,0 a260,260 0 1,0 520,0 a260,260 0 1,0 -520,0"
+        android:fillColor="#1E1B4B" />
+    <path
+        android:pathData="M300,400 m-200,0 a200,200 0 1,0 400,0 a200,200 0 1,0 -400,0"
+        android:fillColor="#312E81" />
+    <!-- Lightning Energy Sparks -->
+    <path
+        android:pathData="M140,240 L180,280 L160,300 L210,340"
+        android:strokeColor="#FACC15"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M460,240 L420,280 L440,300 L390,340"
+        android:strokeColor="#FACC15"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M110,480 L160,490 L140,510 L190,530"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="8"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M490,480 L440,490 L460,510 L410,530"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="8"
+        android:strokeLineCap="round" />
+    <!-- Alarm Clock Twin Bells -->
+    <path
+        android:pathData="M160,230 a60,60 0 0,1 80,-50 l20,30 a60,60 0 0,1 -80,50 Z"
+        android:fillColor="#EF4444" />
+    <path
+        android:pathData="M440,230 a60,60 0 0,0 -80,-50 l-20,30 a60,60 0 0,0 80,50 Z"
+        android:fillColor="#EF4444" />
+    <!-- Hammer -->
+    <path
+        android:pathData="M285,200 h30 v-40 h-30 Z"
+        android:fillColor="#94A3B8" />
+    <!-- Clock Feet -->
+    <path
+        android:pathData="M180,560 L140,650 L180,660 L210,590 Z"
+        android:fillColor="#64748B" />
+    <path
+        android:pathData="M420,560 L460,650 L420,660 L390,590 Z"
+        android:fillColor="#64748B" />
+    <!-- Clock Outer Ring -->
+    <path
+        android:pathData="M300,410 m-160,0 a160,160 0 1,0 320,0 a160,160 0 1,0 -320,0"
+        android:fillColor="#DC2626" />
+    <!-- Clock Face -->
+    <path
+        android:pathData="M300,410 m-135,0 a135,135 0 1,0 270,0 a135,135 0 1,0 -270,0"
+        android:fillColor="#FFFFFF" />
+    <!-- Clock Center Pivot -->
+    <path
+        android:pathData="M300,410 m-15,0 a15,15 0 1,0 30,0 a15,15 0 1,0 -30,0"
+        android:fillColor="#0F172A" />
+    <!-- Clock Hands (Pointing at 7:00 AM) -->
+    <!-- Hour Hand -->
+    <path
+        android:pathData="M300,410 L250,470"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="14"
+        android:strokeLineCap="round" />
+    <!-- Minute Hand -->
+    <path
+        android:pathData="M300,410 L300,300"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+    <!-- Second Hand (Red) -->
+    <path
+        android:pathData="M300,410 L380,360"
+        android:strokeColor="#EF4444"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+    <!-- Hour Ticks -->
+    <path
+        android:pathData="M300,285 v15 M300,520 v15 M175,410 h15 M410,410 h15"
+        android:strokeColor="#64748B"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+</vector>

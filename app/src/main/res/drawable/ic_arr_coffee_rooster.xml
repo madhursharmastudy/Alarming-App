@@ -1,0 +1,71 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Warm morning kitchen background -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#FEF3C7" />
+    <path
+        android:pathData="M0,0 h600 v520 h-600 Z"
+        android:fillColor="#FDE68A" />
+    <!-- Sun Window in background -->
+    <path
+        android:pathData="M320,80 h220 v280 h-220 Z"
+        android:fillColor="#FED7AA" />
+    <path
+        android:pathData="M430,220 m-70,0 a70,70 0 1,0 140,0 a70,70 0 1,0 -140,0"
+        android:fillColor="#F97316" />
+    <!-- Window frame -->
+    <path
+        android:pathData="M310,70 h240 v10 h-240 Z M310,360 h240 v10 h-240 Z M425,70 h10 v290 h-10 Z M310,210 h240 v10 h-240 Z"
+        android:fillColor="#78350F" />
+    <!-- Table top -->
+    <path
+        android:pathData="M0,520 h600 v280 h-600 Z"
+        android:fillColor="#B45309" />
+    <path
+        android:pathData="M0,540 h600 v260 h-600 Z"
+        android:fillColor="#92400E" />
+    <!-- Coffee Mug -->
+    <path
+        android:pathData="M120,440 h180 v180 a40,40 0 0,1 -40,40 h-100 a40,40 0 0,1 -40,-40 Z"
+        android:fillColor="#EF4444" />
+    <!-- Mug handle -->
+    <path
+        android:pathData="M290,470 h40 a30,30 0 0,1 30,30 v60 a30,30 0 0,1 -30,30 h-40 v-20 h30 a15,15 0 0,0 15,-15 v-40 a15,15 0 0,0 -15,-15 h-30 Z"
+        android:fillColor="#DC2626" />
+    <!-- Steam curls -->
+    <path
+        android:pathData="M160,400 Q140,350 170,300 Q190,260 170,220"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M220,400 Q240,340 210,290 Q190,240 220,200"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+    <!-- Morning Rooster Crest & Head Silhouette -->
+    <!-- Rooster Body -->
+    <path
+        android:pathData="M380,480 Q450,420 520,480 Q560,540 500,620 Q440,660 380,600 Z"
+        android:fillColor="#1E293B" />
+    <!-- Rooster Neck & Head -->
+    <path
+        android:pathData="M390,520 L400,380 Q420,350 450,380 L440,510 Z"
+        android:fillColor="#1E293B" />
+    <!-- Rooster Comb / Crest (Bright Red) -->
+    <path
+        android:pathData="M410,360 Q400,320 420,330 Q430,300 450,320 Q470,300 480,330 Q490,360 450,370 Z"
+        android:fillColor="#EF4444" />
+    <!-- Beak -->
+    <path
+        android:pathData="M460,390 L510,410 L460,425 Z"
+        android:fillColor="#F59E0B" />
+    <!-- Wattle -->
+    <path
+        android:pathData="M450,425 Q465,460 445,470 Q435,460 440,430 Z"
+        android:fillColor="#DC2626" />
+</vector>

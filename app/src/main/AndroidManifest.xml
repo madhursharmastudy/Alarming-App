@@ -68,7 +68,16 @@
             android:theme="@style/Theme.MyApplication" />
 
         <activity
-            android:name=".challenge.PuzzleChallengeActivity"
+            android:name=".challenge.TypingChallengeActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.MyApplication" />
+
+        <activity
+            android:name=".challenge.ImageArrangementChallengeActivity"
             android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"

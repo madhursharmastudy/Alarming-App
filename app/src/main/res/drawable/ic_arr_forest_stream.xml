@@ -1,0 +1,51 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Morning Sky with Soft Green-Blue Hue -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#E0F2FE" />
+    <path
+        android:pathData="M0,0 h600 v400 h-600 Z"
+        android:fillColor="#BAE6FD" />
+    <!-- Distant Mountain Ridge -->
+    <path
+        android:pathData="M0,320 L160,220 L340,310 L480,240 L600,290 L600,450 L0,450 Z"
+        android:fillColor="#94A3B8" />
+    <!-- Distant Forest Layer (Dark Teal) -->
+    <path
+        android:pathData="M0,380 h600 v220 h-600 Z"
+        android:fillColor="#0F766E" />
+    <!-- Rolling Grass Hills -->
+    <path
+        android:pathData="M0,480 Q250,420 600,490 L600,800 L0,800 Z"
+        android:fillColor="#15803D" />
+    <!-- Winding Stream (Cyan / Azure) -->
+    <path
+        android:pathData="M320,490 Q280,560 360,630 Q440,710 260,800 L380,800 Q560,710 460,610 Q390,550 400,490 Z"
+        android:fillColor="#06B6D4" />
+    <path
+        android:pathData="M340,510 Q310,560 380,620 Q440,680 320,780"
+        android:strokeColor="#A5F3FC"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+    <!-- Pine Trees (Deep Emerald Green) -->
+    <path
+        android:pathData="M80,440 L40,540 L120,540 Z M80,480 L30,590 L130,590 Z M70,590 h20 v30 h-20 Z"
+        android:fillColor="#166534" />
+    <path
+        android:pathData="M180,470 L145,560 L215,560 Z M180,520 L135,610 L225,610 Z M172,610 h16 v25 h-16 Z"
+        android:fillColor="#14532D" />
+    <path
+        android:pathData="M520,450 L480,550 L560,550 Z M520,500 L470,610 L570,610 Z M510,610 h20 v30 h-20 Z"
+        android:fillColor="#166534" />
+    <!-- Foreground Foliage -->
+    <path
+        android:pathData="M0,720 Q120,680 200,800 L0,800 Z"
+        android:fillColor="#14532D" />
+    <path
+        android:pathData="M480,740 Q550,690 600,770 L600,800 L480,800 Z"
+        android:fillColor="#14532D" />
+</vector>

@@ -63,11 +63,12 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.challenge.AudioChallengeActivity
 import com.example.challenge.CameraChallengeActivity
+import com.example.challenge.ImageArrangementChallengeActivity
 import com.example.challenge.MathChallengeActivity
-import com.example.challenge.PuzzleChallengeActivity
 import com.example.challenge.QrChallengeActivity
 import com.example.challenge.ShakeChallengeActivity
 import com.example.challenge.StepsChallengeActivity
+import com.example.challenge.TypingChallengeActivity
 import com.example.data.ChallengeType
 import com.example.service.AlarmReceiver
 import com.example.service.AlarmRingingService
@@ -133,7 +134,8 @@ class AlarmRingingActivity : ComponentActivity() {
         val targetClass = when (type) {
             ChallengeType.AUDIO -> AudioChallengeActivity::class.java
             ChallengeType.CAMERA -> CameraChallengeActivity::class.java
-            ChallengeType.PUZZLE -> PuzzleChallengeActivity::class.java
+            ChallengeType.TYPING -> TypingChallengeActivity::class.java
+            ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
             ChallengeType.MATH -> MathChallengeActivity::class.java
             ChallengeType.SHAKE -> ShakeChallengeActivity::class.java
             ChallengeType.STEPS -> StepsChallengeActivity::class.java

@@ -1,0 +1,48 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Blue Morning Sky -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#38BDF8" />
+    <path
+        android:pathData="M0,450 h600 v350 h-600 Z"
+        android:fillColor="#7DD3FC" />
+    <!-- White Morning Clouds -->
+    <path
+        android:pathData="M60,180 a40,40 0 0,1 60,-20 a50,50 0 0,1 80,10 a40,40 0 0,1 20,40 h-160 Z"
+        android:fillColor="#F8FAFC" />
+    <path
+        android:pathData="M420,240 a35,35 0 0,1 50,-15 a45,45 0 0,1 70,10 a35,35 0 0,1 20,35 h-140 Z"
+        android:fillColor="#F8FAFC" />
+    <!-- Hot Air Balloon Envelope -->
+    <!-- Balloon Body Outer (Red) -->
+    <path
+        android:pathData="M300,120 C180,120 160,260 250,380 L350,380 C440,260 420,120 300,120 Z"
+        android:fillColor="#EF4444" />
+    <!-- Balloon Stripes (Yellow, Green, Blue) -->
+    <path
+        android:pathData="M300,120 C230,120 220,260 275,380 L325,380 C380,260 370,120 300,120 Z"
+        android:fillColor="#FBBF24" />
+    <path
+        android:pathData="M300,120 C265,120 260,260 290,380 L310,380 C340,260 335,120 300,120 Z"
+        android:fillColor="#10B981" />
+    <!-- Ropes to Basket -->
+    <path
+        android:pathData="M260,380 L275,440 M340,380 L325,440 M280,380 L285,440 M320,380 L315,440"
+        android:strokeColor="#78350F"
+        android:strokeWidth="4" />
+    <!-- Balloon Basket -->
+    <path
+        android:pathData="M270,440 h60 v40 h-60 Z"
+        android:fillColor="#92400E" />
+    <!-- Rolling Countryside Hills -->
+    <path
+        android:pathData="M0,600 Q200,520 400,620 Q500,660 600,600 L600,800 L0,800 Z"
+        android:fillColor="#15803D" />
+    <path
+        android:pathData="M0,680 Q300,620 600,700 L600,800 L0,800 Z"
+        android:fillColor="#166534" />
+</vector>

@@ -1,0 +1,54 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="800dp"
+    android:viewportWidth="600"
+    android:viewportHeight="800">
+    <!-- Tropical Twilight Sky -->
+    <path
+        android:pathData="M0,0 h600 v800 h-600 Z"
+        android:fillColor="#1E1B4B" />
+    <path
+        android:pathData="M0,200 h600 v600 h-600 Z"
+        android:fillColor="#4338CA" />
+    <path
+        android:pathData="M0,360 h600 v440 h-600 Z"
+        android:fillColor="#DB2777" />
+    <path
+        android:pathData="M0,480 h600 v320 h-600 Z"
+        android:fillColor="#F59E0B" />
+    <!-- Golden Sunset / Sunrise Sun -->
+    <path
+        android:pathData="M300,500 m-80,0 a80,80 0 1,0 160,0 a80,80 0 1,0 -160,0"
+        android:fillColor="#FEF08A" />
+    <!-- Ocean Horizon -->
+    <path
+        android:pathData="M0,500 h600 v300 h-600 Z"
+        android:fillColor="#0284C7" />
+    <path
+        android:pathData="M0,560 h600 v240 h-600 Z"
+        android:fillColor="#0369A1" />
+    <!-- Sun Reflection in Ocean -->
+    <path
+        android:pathData="M240,510 h120 v6 h-120 Z M260,530 h80 v6 h-80 Z M250,550 h100 v6 h-100 Z M270,570 h60 v6 h-60 Z"
+        android:fillColor="#FDE047" />
+    <!-- Sandy Shoreline -->
+    <path
+        android:pathData="M0,640 Q250,600 600,680 L600,800 L0,800 Z"
+        android:fillColor="#FBBF24" />
+    <path
+        android:pathData="M0,700 Q300,660 600,740 L600,800 L0,800 Z"
+        android:fillColor="#D97706" />
+    <!-- Palm Tree Left -->
+    <!-- Trunk -->
+    <path
+        android:pathData="M40,780 Q90,560 160,420"
+        android:strokeColor="#78350F"
+        android:strokeWidth="20"
+        android:strokeLineCap="round" />
+    <!-- Fronds -->
+    <path
+        android:pathData="M160,420 Q90,380 40,430 M160,420 Q120,330 90,300 M160,420 Q200,320 230,310 M160,420 Q240,380 270,430 M160,420 Q210,460 250,500"
+        android:strokeColor="#15803D"
+        android:strokeWidth="12"
+        android:strokeLineCap="round" />
+</vector>

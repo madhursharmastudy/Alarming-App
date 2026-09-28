@@ -53,7 +53,8 @@ import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
@@ -114,11 +115,12 @@ import androidx.core.content.ContextCompat
 import com.example.challenge.AudioChallengeActivity
 import com.example.challenge.CameraChallengeActivity
 import com.example.challenge.CameraPreviewComposable
+import com.example.challenge.ImageArrangementChallengeActivity
 import com.example.challenge.MathChallengeActivity
-import com.example.challenge.PuzzleChallengeActivity
 import com.example.challenge.QrChallengeActivity
 import com.example.challenge.ShakeChallengeActivity
 import com.example.challenge.StepsChallengeActivity
+import com.example.challenge.TypingChallengeActivity
 import com.example.data.AlarmEntity
 import com.example.data.AlarmRepository
 import com.example.data.AppDatabase
@@ -177,7 +179,8 @@ class MainActivity : ComponentActivity() {
         val targetClass = when (type) {
             ChallengeType.AUDIO -> AudioChallengeActivity::class.java
             ChallengeType.CAMERA -> CameraChallengeActivity::class.java
-            ChallengeType.PUZZLE -> PuzzleChallengeActivity::class.java
+            ChallengeType.TYPING -> TypingChallengeActivity::class.java
+            ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
             ChallengeType.MATH -> MathChallengeActivity::class.java
             ChallengeType.SHAKE -> ShakeChallengeActivity::class.java
             ChallengeType.STEPS -> StepsChallengeActivity::class.java
@@ -446,10 +449,11 @@ fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
     val (icon, color) = when (type) {
         ChallengeType.AUDIO -> Icons.Default.Mic to Color(0xFF8B5CF6)
         ChallengeType.CAMERA -> Icons.Default.CameraAlt to Color(0xFF06B6D4)
-        ChallengeType.PUZZLE -> Icons.Default.Extension to Color(0xFFF59E0B)
+        ChallengeType.TYPING -> Icons.Default.Keyboard to Color(0xFF10B981)
+        ChallengeType.IMAGE_ARRANGEMENT -> Icons.Default.GridOn to Color(0xFFF59E0B)
         ChallengeType.MATH -> Icons.Default.Science to Color(0xFF3B82F6)
         ChallengeType.SHAKE -> Icons.Default.PhoneAndroid to Color(0xFFEC4899)
-        ChallengeType.STEPS -> Icons.Default.Timer to Color(0xFF10B981)
+        ChallengeType.STEPS -> Icons.Default.Timer to Color(0xFF14B8A6)
         ChallengeType.QR -> Icons.Default.QrCode to Color(0xFF6366F1)
     }
 
