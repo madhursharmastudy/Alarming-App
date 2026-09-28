@@ -55,15 +55,20 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Alarm
@@ -115,12 +120,17 @@ import androidx.core.content.ContextCompat
 import com.example.challenge.AudioChallengeActivity
 import com.example.challenge.CameraChallengeActivity
 import com.example.challenge.CameraPreviewComposable
+import com.example.challenge.ChargerChallengeActivity
 import com.example.challenge.ImageArrangementChallengeActivity
 import com.example.challenge.MathChallengeActivity
+import com.example.challenge.OddOneOutChallengeActivity
+import com.example.challenge.PatternLockChallengeActivity
 import com.example.challenge.QrChallengeActivity
+import com.example.challenge.ReactionGameChallengeActivity
 import com.example.challenge.ShakeChallengeActivity
 import com.example.challenge.StepsChallengeActivity
 import com.example.challenge.TypingChallengeActivity
+import com.example.challenge.WordScrambleChallengeActivity
 import com.example.data.AlarmEntity
 import com.example.data.AlarmRepository
 import com.example.data.AppDatabase
@@ -181,6 +191,11 @@ class MainActivity : ComponentActivity() {
             ChallengeType.CAMERA -> CameraChallengeActivity::class.java
             ChallengeType.TYPING -> TypingChallengeActivity::class.java
             ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
+            ChallengeType.CHARGER -> ChargerChallengeActivity::class.java
+            ChallengeType.WORD_SCRAMBLE -> WordScrambleChallengeActivity::class.java
+            ChallengeType.PATTERN_LOCK -> PatternLockChallengeActivity::class.java
+            ChallengeType.ODD_ONE_OUT -> OddOneOutChallengeActivity::class.java
+            ChallengeType.REACTION_GAME -> ReactionGameChallengeActivity::class.java
             ChallengeType.MATH -> MathChallengeActivity::class.java
             ChallengeType.SHAKE -> ShakeChallengeActivity::class.java
             ChallengeType.STEPS -> StepsChallengeActivity::class.java
@@ -188,7 +203,7 @@ class MainActivity : ComponentActivity() {
         }
         val intent = Intent(this, targetClass).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
-            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, "Test 3-Stage ${type.displayName}")
+            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, "Test ${type.displayName}")
             putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, type.name)
             putExtra(AlarmReceiver.EXTRA_REF_LABELS, "Cup, Sink, Bathroom, Tableware")
         }
@@ -451,8 +466,13 @@ fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
         ChallengeType.CAMERA -> Icons.Default.CameraAlt to Color(0xFF06B6D4)
         ChallengeType.TYPING -> Icons.Default.Keyboard to Color(0xFF10B981)
         ChallengeType.IMAGE_ARRANGEMENT -> Icons.Default.GridOn to Color(0xFFF59E0B)
+        ChallengeType.CHARGER -> Icons.Default.Power to Color(0xFFEF4444)
+        ChallengeType.WORD_SCRAMBLE -> Icons.Default.TextFields to Color(0xFF38BDF8)
+        ChallengeType.PATTERN_LOCK -> Icons.Default.Lock to Color(0xFFF97316)
+        ChallengeType.ODD_ONE_OUT -> Icons.Default.Visibility to Color(0xFFEC4899)
+        ChallengeType.REACTION_GAME -> Icons.Default.Speed to Color(0xFF22C55E)
         ChallengeType.MATH -> Icons.Default.Science to Color(0xFF3B82F6)
-        ChallengeType.SHAKE -> Icons.Default.PhoneAndroid to Color(0xFFEC4899)
+        ChallengeType.SHAKE -> Icons.Default.PhoneAndroid to Color(0xFFA855F7)
         ChallengeType.STEPS -> Icons.Default.Timer to Color(0xFF14B8A6)
         ChallengeType.QR -> Icons.Default.QrCode to Color(0xFF6366F1)
     }

@@ -1,6 +1,6 @@
 {
   "name": "ForceAlarm",
-  "description": "Uncompromising wake-up alarm with 3-stage progressive challenges including Typing Task, Image Arrangement with Holding Area, voice recognition, camera matching, math, and motion.",
+  "description": "Uncompromising wake-up alarm with progressive offline challenges: Charger, Word Scramble, Pattern Lock, Odd One Out, Reaction Game, Typing, Image Arrangement, and motion.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

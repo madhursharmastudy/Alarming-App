@@ -106,6 +106,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     abstract fun getStageTimeLimit(stage: Int): Int
     abstract fun onStageStarted(stage: Int)
     abstract fun onResetToStage1()
+    open fun getTotalStages(): Int = 3
 
     @Composable
     abstract fun ChallengeContent(modifier: Modifier)
@@ -176,7 +177,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
 
     protected fun completeCurrentStage() {
         val next = currentStageState.value + 1
-        if (next <= 3) {
+        if (next <= getTotalStages()) {
             timeoutNoticeState.value = "Stage ${currentStageState.value} Passed! Advancing..."
             startStage(next)
         } else {
@@ -284,6 +285,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                 ChallengeHeader(
                     challengeType = getChallengeType(),
                     currentStage = stage,
+                    totalStages = getTotalStages(),
                     remainingSec = remainingSec,
                     totalSec = totalSec,
                     progress = progress,
@@ -351,6 +353,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
 fun ChallengeHeader(
     challengeType: ChallengeType,
     currentStage: Int,
+    totalStages: Int = 3,
     remainingSec: Int,
     totalSec: Int,
     progress: Float,
@@ -381,7 +384,7 @@ fun ChallengeHeader(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "3-Stage Progressive Challenge",
+                        text = if (totalStages == 1) "Single Action Challenge" else "3-Stage Progressive Challenge",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -426,34 +429,44 @@ fun ChallengeHeader(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 3-Stage Progress Indicator Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            // Stage Progress Indicator Row
+            if (totalStages == 1) {
                 StageStepItem(
                     stageNumber = 1,
-                    title = "Low",
-                    isCurrent = currentStage == 1,
-                    isPassed = currentStage > 1,
-                    modifier = Modifier.weight(1f)
+                    title = "Single Action",
+                    isCurrent = true,
+                    isPassed = false,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                StageStepItem(
-                    stageNumber = 2,
-                    title = "Moderate",
-                    isCurrent = currentStage == 2,
-                    isPassed = currentStage > 2,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                StageStepItem(
-                    stageNumber = 3,
-                    title = "Advanced",
-                    isCurrent = currentStage == 3,
-                    isPassed = currentStage > 3,
-                    modifier = Modifier.weight(1f)
-                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    StageStepItem(
+                        stageNumber = 1,
+                        title = "Low",
+                        isCurrent = currentStage == 1,
+                        isPassed = currentStage > 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    StageStepItem(
+                        stageNumber = 2,
+                        title = "Moderate",
+                        isCurrent = currentStage == 2,
+                        isPassed = currentStage > 2,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    StageStepItem(
+                        stageNumber = 3,
+                        title = "Advanced",
+                        isCurrent = currentStage == 3,
+                        isPassed = currentStage > 3,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
