@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class AppThemeMode(val displayName: String) {
     SYSTEM("System Default"),
-    DARK("Dark (Gold & Midnight)"),
-    LIGHT("Light (Deep Gold & Cream)")
+    DARK("Dark (Crimson & Onyx)"),
+    LIGHT("Light (Ruby & Paper)")
 }
 
 object ThemePreferences {

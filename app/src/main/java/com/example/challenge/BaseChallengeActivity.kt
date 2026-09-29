@@ -32,13 +32,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.Button
@@ -48,7 +48,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ChallengeType
@@ -71,17 +71,14 @@ import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-// TEMPORARY TEST CODE - REMOVE LATER
-const val SHOW_TEST_STOP_BUTTON = true
-
 /**
  * Base Activity providing:
  * - 3-stage progression logic with timer per stage
  * - Idempotent State Machine: Ringing -> Challenge(1..3) -> Completed (terminal)
  * - Automatic alarm silencing during challenge solving
  * - 3-second grace period on home/recents press before resuming alarm & resetting to stage 1
- * - Reserved fixed-height header, message slot, and non-scrollable play area
- * - Two-color theme consistency (Gold & Background)
+ * - Non-overlapping header, message slot, and non-scrollable play area
+ * - 2-color sharp contrast theme consistency
  */
 abstract class BaseChallengeActivity : ComponentActivity() {
 
@@ -149,16 +146,6 @@ abstract class BaseChallengeActivity : ComponentActivity() {
 
     @Composable
     abstract fun ChallengeContent(modifier: Modifier)
-
-    // TEMPORARY TEST CODE - REMOVE LATER
-    fun testStopAlarm() {
-        stageTimer?.cancel()
-        abandonRunnable?.let { abandonHandler?.removeCallbacks(it) }
-        abandonRunnable = null
-        abandonHandler = null
-        AlarmRingingService.stopAlarm(this)
-        finish()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -363,7 +350,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                         .navigationBarsPadding()
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-                    // Section 1: Fixed-Height Compact Header
+                    // Section 1: Fixed-Height Compact Header with Non-overlapping Layout
                     ChallengeHeader(
                         challengeType = getChallengeType(),
                         currentStage = stage,
@@ -374,17 +361,16 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                         isUrgent = isUrgent,
                         isLoud = isLoud,
                         pulseScale = pulseScale,
-                        onReSilence = { reSilenceAlarm() },
-                        onTestStopAlarm = { testStopAlarm() }
+                        onReSilence = { reSilenceAlarm() }
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Section 2: Reserved Fixed-Height Message Slot (Never shifts or pushes layout)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(38.dp),
+                            .height(36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (activeNotice != null) {
@@ -421,6 +407,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                 }
@@ -428,7 +415,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Section 3: Main Play Area (weight 1f, strictly non-scrollable)
                     Box(
@@ -455,8 +442,7 @@ fun ChallengeHeader(
     isUrgent: Boolean,
     isLoud: Boolean,
     pulseScale: Float,
-    onReSilence: () -> Unit,
-    onTestStopAlarm: () -> Unit
+    onReSilence: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -470,9 +456,11 @@ fun ChallengeHeader(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-            // Top Action Row
+            // Top Action Row with proper space distribution: title on left, action on right
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -481,74 +469,63 @@ fun ChallengeHeader(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    // Silence/Loud indicator button
-                    if (isLoud) {
-                        Button(
-                            onClick = onReSilence,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .height(30.dp)
-                                .testTag("re_silence_button")
-                        ) {
-                            Icon(Icons.Default.VolumeOff, contentDescription = "Silence", modifier = Modifier.size(13.dp))
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("Re-Silence", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
-                    } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.VolumeOff,
-                                contentDescription = "Silent Mode",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Silent",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1
-                            )
-                        }
+                // Silence/Loud indicator button with fixed minimum width so text is never clipped
+                if (isLoud) {
+                    Button(
+                        onClick = onReSilence,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .height(32.dp)
+                            .widthIn(min = 96.dp)
+                            .testTag("re_silence_button")
+                    ) {
+                        Icon(Icons.Default.VolumeOff, contentDescription = "Silence", modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("Re-Silence", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
-
-                    // TEMPORARY TEST CODE - REMOVE LATER
-                    if (SHOW_TEST_STOP_BUTTON) {
-                        OutlinedButton(
-                            onClick = onTestStopAlarm,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .height(30.dp)
-                                .testTag("test_stop_alarm_button_header")
-                        ) {
-                            Icon(Icons.Default.StopCircle, contentDescription = null, modifier = Modifier.size(12.dp))
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text("TEST: Stop", fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .height(32.dp)
+                            .widthIn(min = 72.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VolumeOff,
+                            contentDescription = "Silent Mode",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Silent",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            // Fixed 8dp spacing between header row and stage tabs
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Stage Progress Tabs
             if (totalStages == 1) {

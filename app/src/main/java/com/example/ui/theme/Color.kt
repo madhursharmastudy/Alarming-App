@@ -2,11 +2,11 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Aurum Alarm 2-Color Theme Palette
-// Dark theme: background #0B0B0F, main color gold #D4AF37
-val AurumDarkBackground = Color(0xFF0B0B0F)
-val AurumDarkGold = Color(0xFFD4AF37)
+// Aurum Alarm 2-Color Palette
+// Dark theme: background #0D0D0D (near-black), main/accent color #E53935 (bright red)
+val AurumDarkBackground = Color(0xFF0D0D0D)
+val AurumDarkAccent = Color(0xFFE53935)
 
-// Light theme: background #F7F3E8, main color deep gold #8A6D12
-val AurumLightBackground = Color(0xFFF7F3E8)
-val AurumLightDeepGold = Color(0xFF8A6D12)
+// Light theme: background #FAFAFA (near-white), main/accent color #C62828 (dark red)
+val AurumLightBackground = Color(0xFFFAFAFA)
+val AurumLightAccent = Color(0xFFC62828)

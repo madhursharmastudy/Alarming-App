@@ -50,24 +50,6 @@
             android:theme="@style/Theme.MyApplication" />
 
         <activity
-            android:name=".challenge.AudioChallengeActivity"
-            android:exported="false"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTask"
-            android:theme="@style/Theme.MyApplication" />
-
-        <activity
-            android:name=".challenge.CameraChallengeActivity"
-            android:exported="false"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTask"
-            android:theme="@style/Theme.MyApplication" />
-
-        <activity
             android:name=".challenge.TypingChallengeActivity"
             android:exported="false"
             android:showWhenLocked="true"

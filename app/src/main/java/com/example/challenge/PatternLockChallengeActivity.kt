@@ -53,13 +53,20 @@ import kotlin.math.hypot
 import kotlin.random.Random
 
 /**
- * 3-Stage Pattern Lock Challenge.
- * The target pattern is ALWAYS visible as a reference card at the top.
- * User connects the dots on the interactive canvas below.
- * On error, user can retry the same pattern without regeneration.
- * Fits on a single fixed screen with NO scrolling.
+ * 3-Stage Pattern Lock Challenge:
+ * - Low: 6 dots (2 cols x 3 rows), 4-dot pattern, 45s.
+ * - Moderate: 9 dots (3 cols x 3 rows), 6-dot pattern, 60s.
+ * - Difficult: 12 dots (3 cols x 4 rows), 8-dot pattern, 90s.
+ * Reference pattern card remains ALWAYS visible at top.
+ * Precise segment-based hit detection without false neighbor triggers.
  */
 class PatternLockChallengeActivity : BaseChallengeActivity() {
+
+    private val gridColsState = MutableStateFlow(2)
+    val gridCols = gridColsState.asStateFlow()
+
+    private val gridRowsState = MutableStateFlow(3)
+    val gridRows = gridRowsState.asStateFlow()
 
     private val targetPatternState = MutableStateFlow<List<Int>>(emptyList())
     val targetPattern = targetPatternState.asStateFlow()
@@ -70,9 +77,9 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
     override fun getChallengeType(): ChallengeType = ChallengeType.PATTERN_LOCK
 
     override fun getStageTimeLimit(stage: Int): Int = when (stage) {
-        1 -> 45  // Low: 4 dots, 45s
-        2 -> 60  // Moderate: 6 dots, 60s
-        3 -> 90  // Difficult: 8-9 dots, 90s
+        1 -> 45  // Low: 45s
+        2 -> 60  // Moderate: 60s
+        3 -> 90  // Difficult: 90s
         else -> 45
     }
 
@@ -85,42 +92,44 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
     }
 
     private fun setupPattern(stage: Int) {
-        val dotCount = when (stage) {
-            1 -> 4
-            2 -> 6
-            3 -> if (Random.nextBoolean()) 8 else 9
-            else -> 4
+        val (cols, rows, patternLen) = when (stage) {
+            1 -> Triple(2, 3, 4) // Low: 2x3 = 6 dots, length 4
+            2 -> Triple(3, 3, 6) // Moderate: 3x3 = 9 dots, length 6
+            3 -> Triple(3, 4, 8) // Difficult: 3x4 = 12 dots, length 8
+            else -> Triple(2, 3, 4)
         }
 
-        val pattern = generateValidPattern(dotCount)
+        gridColsState.value = cols
+        gridRowsState.value = rows
+        val pattern = generateValidPattern(cols, rows, patternLen)
         targetPatternState.value = pattern
         userPatternState.value = emptyList()
         setFeedbackMessage("Follow the reference pattern above")
     }
 
-    private fun generateValidPattern(length: Int): List<Int> {
+    private fun generateValidPattern(cols: Int, rows: Int, length: Int): List<Int> {
+        val totalDots = cols * rows
         val pattern = mutableListOf<Int>()
-        val startDot = Random.nextInt(9)
-        pattern.add(startDot)
+        var current = Random.nextInt(totalDots)
+        pattern.add(current)
 
-        fun areAdjacentOrDirect(a: Int, b: Int): Boolean {
-            val ax = a % 3
-            val ay = a / 3
-            val bx = b % 3
-            val by = b / 3
+        fun canConnect(a: Int, b: Int): Boolean {
+            val ax = a % cols
+            val ay = a / cols
+            val bx = b % cols
+            val by = b / cols
             val dx = kotlin.math.abs(ax - bx)
             val dy = kotlin.math.abs(ay - by)
             return (dx <= 1 && dy <= 1) || (dx == 1 && dy == 2) || (dx == 2 && dy == 1)
         }
 
-        var current = startDot
         while (pattern.size < length) {
-            val candidates = (0..8).filter { it !in pattern && areAdjacentOrDirect(current, it) }
+            val candidates = (0 until totalDots).filter { it !in pattern && canConnect(current, it) }
             if (candidates.isNotEmpty()) {
                 current = candidates.random()
                 pattern.add(current)
             } else {
-                val remaining = (0..8).filter { it !in pattern }
+                val remaining = (0 until totalDots).filter { it !in pattern }
                 if (remaining.isNotEmpty()) {
                     current = remaining.random()
                     pattern.add(current)
@@ -142,8 +151,8 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
             setFeedbackMessage("Pattern verified! Stage Completed!", isSuccess = true)
             completeCurrentStage()
         } else {
-            // Keep the SAME target pattern visible, allow retry!
-            setFeedbackMessage("Pattern mismatch! Follow the reference pattern to retry.", isError = true)
+            // Keep the same pattern visible and let user retry immediately
+            setFeedbackMessage("Pattern mismatch! Follow the reference to retry.", isError = true)
             userPatternState.value = emptyList()
         }
     }
@@ -154,11 +163,15 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
 
     @Composable
     override fun ChallengeContent(modifier: Modifier) {
+        val cols by gridCols.collectAsState()
+        val rows by gridRows.collectAsState()
         val target by targetPattern.collectAsState()
         val user by userPattern.collectAsState()
         val stage by currentStage.collectAsState()
 
         PatternLockScreen(
+            cols = cols,
+            rows = rows,
             targetPattern = target,
             userPattern = user,
             currentStage = stage,
@@ -172,6 +185,8 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
 
 @Composable
 fun PatternLockScreen(
+    cols: Int,
+    rows: Int,
     targetPattern: List<Int>,
     userPattern: List<Int>,
     currentStage: Int,
@@ -194,13 +209,9 @@ fun PatternLockScreen(
         val totalW = maxWidth
         val totalH = maxHeight
 
-        // Fixed heights:
-        // Reference card: ~72dp
-        // Bottom bar: ~40dp
-        // Spacing: ~12dp
-        // Total fixed overhead: ~124dp
-        val availableCanvasH = (totalH - 124.dp).coerceAtLeast(150.dp)
-        val canvasSize = minOf(totalW - 16.dp, availableCanvasH).coerceIn(150.dp, 280.dp)
+        val availableCanvasH = (totalH - 128.dp).coerceAtLeast(160.dp)
+        val canvasW = (totalW - 16.dp).coerceIn(160.dp, 320.dp)
+        val canvasH = availableCanvasH.coerceIn(160.dp, 340.dp)
 
         Column(
             modifier = Modifier
@@ -238,13 +249,12 @@ fun PatternLockScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Connect in sequence 1 → ${targetPattern.size}",
+                            text = "Grid: ${cols}×${rows} • Connect 1 → ${targetPattern.size}",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    // Miniature Reference Pattern View
                     Box(
                         modifier = Modifier
                             .size(62.dp)
@@ -261,6 +271,8 @@ fun PatternLockScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         MiniPatternReferenceCanvas(
+                            cols = cols,
+                            rows = rows,
                             targetPattern = targetPattern,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -277,7 +289,7 @@ fun PatternLockScreen(
             ) {
                 Card(
                     modifier = Modifier
-                        .size(canvasSize)
+                        .size(width = canvasW, height = canvasH)
                         .testTag("pattern_lock_card"),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
@@ -295,18 +307,22 @@ fun PatternLockScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         InteractivePatternGridCanvas(
+                            cols = cols,
+                            rows = rows,
                             activePattern = activeDrawnPattern.toList(),
                             currentTouch = touchPoint,
-                            onTouchStart = { offset ->
-                                activeDrawnPattern.clear()
-                                touchPoint = offset
-                            },
-                            onTouchMove = { offset, hitDot ->
-                                touchPoint = offset
-                                if (hitDot != null && !activeDrawnPattern.contains(hitDot)) {
-                                    activeDrawnPattern.add(hitDot)
+                            onDotConnected = { dot ->
+                                if (!activeDrawnPattern.contains(dot)) {
+                                    activeDrawnPattern.add(dot)
                                     onPatternUpdate(activeDrawnPattern.toList())
                                 }
+                            },
+                            onTouchPointUpdate = { pt ->
+                                touchPoint = pt
+                            },
+                            onResetTouch = {
+                                activeDrawnPattern.clear()
+                                touchPoint = null
                             },
                             onTouchEnd = {
                                 if (activeDrawnPattern.isNotEmpty()) {
@@ -319,7 +335,7 @@ fun PatternLockScreen(
                 }
             }
 
-            // Bottom Action Row (Fixed 40dp height)
+            // Bottom Action Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -342,7 +358,9 @@ fun PatternLockScreen(
                         onClear()
                     },
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(34.dp).testTag("clear_pattern_button")
+                    modifier = Modifier
+                        .height(34.dp)
+                        .testTag("clear_pattern_button")
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Clear", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -353,11 +371,10 @@ fun PatternLockScreen(
     }
 }
 
-/**
- * Miniature reference canvas showing connected path with numbered sequence
- */
 @Composable
 fun MiniPatternReferenceCanvas(
+    cols: Int,
+    rows: Int,
     targetPattern: List<Int>,
     modifier: Modifier = Modifier
 ) {
@@ -365,19 +382,19 @@ fun MiniPatternReferenceCanvas(
     val dotInactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
 
     Canvas(modifier = modifier) {
+        val totalDots = cols * rows
         val width = size.width
         val height = size.height
 
-        val dotCenters = List(9) { index ->
-            val col = index % 3
-            val row = index / 3
+        val dotCenters = List(totalDots) { index ->
+            val c = index % cols
+            val r = index / cols
             Offset(
-                x = width * (col + 0.5f) / 3f,
-                y = height * (row + 0.5f) / 3f
+                x = width * (c + 0.5f) / cols.toFloat(),
+                y = height * (r + 0.5f) / rows.toFloat()
             )
         }
 
-        // Draw target path connecting dots in order
         if (targetPattern.size > 1) {
             val path = Path().apply {
                 val start = dotCenters[targetPattern.first()]
@@ -395,9 +412,8 @@ fun MiniPatternReferenceCanvas(
             )
         }
 
-        // Draw 9 dots
-        val radius = 4.dp.toPx()
-        for (i in 0 until 9) {
+        val radius = 3.5.dp.toPx()
+        for (i in 0 until totalDots) {
             val center = dotCenters[i]
             val isTarget = targetPattern.contains(i)
             drawCircle(
@@ -409,15 +425,15 @@ fun MiniPatternReferenceCanvas(
     }
 }
 
-/**
- * Interactive 3x3 pattern drawing canvas
- */
 @Composable
 fun InteractivePatternGridCanvas(
+    cols: Int,
+    rows: Int,
     activePattern: List<Int>,
     currentTouch: Offset?,
-    onTouchStart: (Offset) -> Unit,
-    onTouchMove: (Offset, Int?) -> Unit,
+    onDotConnected: (Int) -> Unit,
+    onTouchPointUpdate: (Offset?) -> Unit,
+    onResetTouch: () -> Unit,
     onTouchEnd: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -426,34 +442,64 @@ fun InteractivePatternGridCanvas(
     Canvas(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(cols, rows) {
+                val totalDots = cols * rows
+                val hitRadiusPx = 20.dp.toPx()
+
                 detectDragGestures(
                     onDragStart = { offset ->
-                        onTouchStart(offset)
-                        val dot = findDotUnderOffset(offset, size.width.toFloat(), size.height.toFloat())
-                        onTouchMove(offset, dot)
+                        onResetTouch()
+                        onTouchPointUpdate(offset)
+                        // Check if touched directly on any dot
+                        val dotCenters = computeDotCenters(size.width.toFloat(), size.height.toFloat(), cols, rows)
+                        for (i in 0 until totalDots) {
+                            if (hypot(offset.x - dotCenters[i].x, offset.y - dotCenters[i].y) <= hitRadiusPx) {
+                                onDotConnected(i)
+                                break
+                            }
+                        }
                     },
                     onDrag = { change, _ ->
                         change.consume()
-                        val dot = findDotUnderOffset(change.position, size.width.toFloat(), size.height.toFloat())
-                        onTouchMove(change.position, dot)
+                        val currentPos = change.position
+                        onTouchPointUpdate(currentPos)
+
+                        val dotCenters = computeDotCenters(size.width.toFloat(), size.height.toFloat(), cols, rows)
+                        val lastDot = activePattern.lastOrNull()
+
+                        if (lastDot == null) {
+                            for (i in 0 until totalDots) {
+                                if (hypot(currentPos.x - dotCenters[i].x, currentPos.y - dotCenters[i].y) <= hitRadiusPx) {
+                                    onDotConnected(i)
+                                    break
+                                }
+                            }
+                        } else {
+                            val lastCenter = dotCenters[lastDot]
+                            // Precise Segment-to-Dot detection: find all unvisited dots crossed by the segment
+                            val candidates = mutableListOf<Pair<Int, Float>>()
+                            for (i in 0 until totalDots) {
+                                if (!activePattern.contains(i)) {
+                                    val (dist, t) = distAndTToSegment(dotCenters[i], lastCenter, currentPos)
+                                    if (dist <= hitRadiusPx) {
+                                        candidates.add(Pair(i, t))
+                                    }
+                                }
+                            }
+                            // Add in the exact order they are intersected along the line segment
+                            candidates.sortBy { it.second }
+                            for (candidate in candidates) {
+                                onDotConnected(candidate.first)
+                            }
+                        }
                     },
                     onDragEnd = onTouchEnd,
                     onDragCancel = onTouchEnd
                 )
             }
     ) {
-        val width = size.width
-        val height = size.height
-
-        val dotCenters = List(9) { index ->
-            val col = index % 3
-            val row = index / 3
-            Offset(
-                x = width * (col + 0.5f) / 3f,
-                y = height * (row + 0.5f) / 3f
-            )
-        }
+        val totalDots = cols * rows
+        val dotCenters = computeDotCenters(size.width, size.height, cols, rows)
 
         // Draw connecting path
         if (activePattern.size > 1) {
@@ -472,7 +518,7 @@ fun InteractivePatternGridCanvas(
             drawPath(
                 path = path,
                 color = primaryColor,
-                style = Stroke(width = 7.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
             )
         } else if (activePattern.size == 1 && currentTouch != null) {
             val start = dotCenters[activePattern.first()]
@@ -480,27 +526,25 @@ fun InteractivePatternGridCanvas(
                 color = primaryColor,
                 start = start,
                 end = currentTouch,
-                strokeWidth = 7.dp.toPx(),
+                strokeWidth = 6.dp.toPx(),
                 cap = StrokeCap.Round
             )
         }
 
-        // Draw 9 dots
-        val baseRadius = 12.dp.toPx()
-        val activeRadius = 16.dp.toPx()
+        // Draw dots
+        val baseRadius = 10.dp.toPx()
+        val activeRadius = 14.dp.toPx()
 
-        for (i in 0 until 9) {
+        for (i in 0 until totalDots) {
             val center = dotCenters[i]
             val isDotInPattern = activePattern.contains(i)
 
-            // Outer ring
             drawCircle(
-                color = if (isDotInPattern) primaryColor.copy(alpha = 0.3f) else Color.Transparent,
+                color = if (isDotInPattern) primaryColor.copy(alpha = 0.25f) else Color.Transparent,
                 radius = if (isDotInPattern) activeRadius * 1.5f else baseRadius,
                 center = center
             )
 
-            // Inner circle
             drawCircle(
                 color = if (isDotInPattern) primaryColor else dotInactiveColor,
                 radius = if (isDotInPattern) activeRadius else baseRadius,
@@ -510,17 +554,23 @@ fun InteractivePatternGridCanvas(
     }
 }
 
-private fun findDotUnderOffset(offset: Offset, width: Float, height: Float): Int? {
-    val hitRadius = width / 6f
-    for (i in 0 until 9) {
-        val col = i % 3
-        val row = i / 3
-        val cx = width * (col + 0.5f) / 3f
-        val cy = height * (row + 0.5f) / 3f
-        val dist = hypot(offset.x - cx, offset.y - cy)
-        if (dist <= hitRadius) {
-            return i
-        }
+private fun computeDotCenters(width: Float, height: Float, cols: Int, rows: Int): List<Offset> {
+    val total = cols * rows
+    return List(total) { index ->
+        val c = index % cols
+        val r = index / cols
+        Offset(
+            x = width * (c + 0.5f) / cols.toFloat(),
+            y = height * (r + 0.5f) / rows.toFloat()
+        )
     }
-    return null
+}
+
+private fun distAndTToSegment(p: Offset, a: Offset, b: Offset): Pair<Float, Float> {
+    val l2 = (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)
+    if (l2 == 0f) return Pair(hypot(p.x - a.x, p.y - a.y), 0f)
+    val t = (((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2).coerceIn(0f, 1f)
+    val projX = a.x + t * (b.x - a.x)
+    val projY = a.y + t * (b.y - a.y)
+    return Pair(hypot(p.x - projX, p.y - projY), t)
 }

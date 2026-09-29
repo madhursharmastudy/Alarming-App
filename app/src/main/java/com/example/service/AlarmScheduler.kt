@@ -1,6 +1,7 @@
 package com.example.service
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -61,6 +62,7 @@ object AlarmScheduler {
 
     fun cancelAlarm(context: Context, alarmId: Int) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
         val intent = Intent(context, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             context,
@@ -69,6 +71,22 @@ object AlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+
+        val showIntent = Intent(context, AlarmRingingActivity::class.java)
+        val showPendingIntent = PendingIntent.getActivity(
+            context,
+            alarmId + 10000,
+            showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(showPendingIntent)
+        showPendingIntent.cancel()
+
+        // If the cancelled alarm is actively ringing, stop it immediately
+        if (AlarmRingingService.isServiceRunning && AlarmRingingService.currentAlarmId == alarmId) {
+            AlarmRingingService.stopAlarm(context)
+        }
     }
 
     fun calculateNextTriggerTime(alarm: AlarmEntity): Long {
@@ -80,21 +98,18 @@ object AlarmScheduler {
             set(Calendar.MILLISECOND, 0)
         }
 
-        // If time already passed today and no specific days repeat
         if (target.timeInMillis <= now.timeInMillis) {
             target.add(Calendar.DAY_OF_YEAR, 1)
         }
 
-        // If repeating days specified
         if (alarm.daysOfWeek in 1..126) {
-            // Check day of week matches (Calendar: Sunday=1, Monday=2..Saturday=7)
             for (offset in 0..7) {
                 val checkCal = Calendar.getInstance().apply {
                     timeInMillis = target.timeInMillis
                     add(Calendar.DAY_OF_YEAR, offset)
                 }
-                val calDay = checkCal.get(Calendar.DAY_OF_WEEK) // 1=Sun, 2=Mon...
-                val bitIndex = calDay - 1 // 0=Sun, 1=Mon...
+                val calDay = checkCal.get(Calendar.DAY_OF_WEEK)
+                val bitIndex = calDay - 1
                 val isDayActive = (alarm.daysOfWeek and (1 shl bitIndex)) != 0
                 if (isDayActive && checkCal.timeInMillis > now.timeInMillis) {
                     return checkCal.timeInMillis

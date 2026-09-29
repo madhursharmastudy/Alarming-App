@@ -20,9 +20,12 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
-import com.example.R
+import com.example.data.AppDatabase
 import com.example.data.ChallengeType
 import com.example.ui.AlarmRingingActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AlarmRingingService : Service() {
 
@@ -34,7 +37,7 @@ class AlarmRingingService : Service() {
     private var volumeEscalationRunnable: Runnable? = null
 
     companion object {
-        const val CHANNEL_ID = "force_alarm_ringing_channel"
+        const val CHANNEL_ID = "aurum_alarm_ringing_channel"
         const val NOTIFICATION_ID = 9991
 
         const val ACTION_START_RINGING = "com.example.service.ACTION_START_RINGING"
@@ -60,7 +63,7 @@ class AlarmRingingService : Service() {
             private set
 
         @Volatile
-        var currentAlarmLabel: String = "Wake Up!"
+        var currentAlarmLabel: String = "Aurum Alarm"
             private set
 
         @Volatile
@@ -110,16 +113,39 @@ class AlarmRingingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action ?: ACTION_START_RINGING
+        // Never start or restore on null intents (prevents phantom sticky starts)
+        if (intent == null || intent.action == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        val action = intent.action
 
         when (action) {
             ACTION_START_RINGING -> {
+                val alarmId = intent.getIntExtra(EXTRA_ALARM_ID, -1)
+
+                // If this is a real alarm ID (not a test preview), verify it is still enabled in DB
+                if (alarmId > 0) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val db = AppDatabase.getDatabase(applicationContext)
+                        val alarm = db.alarmDao().getAlarmById(alarmId)
+                        if (alarm == null || !alarm.isEnabled) {
+                            // Alarm was deleted or disabled, do not ring!
+                            stopSelf()
+                            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                            nm?.cancel(NOTIFICATION_ID)
+                            return@launch
+                        }
+                    }
+                }
+
                 isServiceRunning = true
                 isSilenced = false
-                currentAlarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: currentAlarmId
-                currentAlarmLabel = intent?.getStringExtra(EXTRA_ALARM_LABEL) ?: currentAlarmLabel
-                currentChallengeType = intent?.getStringExtra(EXTRA_CHALLENGE_TYPE) ?: currentChallengeType
-                currentRefLabels = intent?.getStringExtra(EXTRA_REF_LABELS) ?: currentRefLabels
+                currentAlarmId = alarmId
+                currentAlarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "Aurum Alarm"
+                currentChallengeType = intent.getStringExtra(EXTRA_CHALLENGE_TYPE) ?: ChallengeType.MATH.name
+                currentRefLabels = intent.getStringExtra(EXTRA_REF_LABELS)
 
                 startForeground(NOTIFICATION_ID, buildNotification(isSilenced = false))
                 startAlarmMediaAndVibration(escalating = true)
@@ -127,7 +153,6 @@ class AlarmRingingService : Service() {
             ACTION_SILENCE_FOR_CHALLENGE -> {
                 isSilenced = true
                 stopAlarmMediaAndVibration()
-                // Keep the foreground service alive to track state!
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.notify(NOTIFICATION_ID, buildNotification(isSilenced = true))
             }
@@ -135,7 +160,7 @@ class AlarmRingingService : Service() {
                 isSilenced = false
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.notify(NOTIFICATION_ID, buildNotification(isSilenced = false))
-                startAlarmMediaAndVibration(escalating = false) // Full volume immediately!
+                startAlarmMediaAndVibration(escalating = false)
             }
             ACTION_STOP_RINGING -> {
                 isServiceRunning = false
@@ -147,11 +172,13 @@ class AlarmRingingService : Service() {
                     @Suppress("DEPRECATION")
                     stopForeground(true)
                 }
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                notificationManager?.cancel(NOTIFICATION_ID)
                 stopSelf()
             }
         }
 
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startAlarmMediaAndVibration(escalating: Boolean) {
@@ -284,6 +311,8 @@ class AlarmRingingService : Service() {
         isServiceRunning = false
         isSilenced = false
         stopAlarmMediaAndVibration()
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        notificationManager?.cancel(NOTIFICATION_ID)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

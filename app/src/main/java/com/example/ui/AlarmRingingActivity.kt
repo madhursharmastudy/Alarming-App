@@ -35,14 +35,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,9 +54,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.challenge.AudioChallengeActivity
-import com.example.challenge.BaseChallengeActivity
-import com.example.challenge.CameraChallengeActivity
 import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
 import com.example.challenge.ImageArrangementChallengeActivity
@@ -67,7 +62,6 @@ import com.example.challenge.OddOneOutChallengeActivity
 import com.example.challenge.PatternLockChallengeActivity
 import com.example.challenge.QrChallengeActivity
 import com.example.challenge.ReactionGameChallengeActivity
-import com.example.challenge.SHOW_TEST_STOP_BUTTON
 import com.example.challenge.ShakeChallengeActivity
 import com.example.challenge.StepsChallengeActivity
 import com.example.challenge.TypingChallengeActivity
@@ -117,12 +111,7 @@ class AlarmRingingActivity : ComponentActivity() {
                 AlarmRingingScreen(
                     alarmLabel = alarmLabel,
                     challengeType = try { ChallengeType.valueOf(challengeTypeStr) } catch (e: Exception) { ChallengeType.MATH },
-                    onStartChallenge = { startChallengeFlow() },
-                    onTestStopAlarm = {
-                        // TEMPORARY TEST CODE - REMOVE LATER
-                        AlarmRingingService.stopAlarm(this@AlarmRingingActivity)
-                        finish()
-                    }
+                    onStartChallenge = { startChallengeFlow() }
                 )
             }
         }
@@ -133,8 +122,6 @@ class AlarmRingingActivity : ComponentActivity() {
 
         val type = try { ChallengeType.valueOf(challengeTypeStr) } catch (e: Exception) { ChallengeType.MATH }
         val targetClass = when (type) {
-            ChallengeType.AUDIO -> AudioChallengeActivity::class.java
-            ChallengeType.CAMERA -> CameraChallengeActivity::class.java
             ChallengeType.TYPING -> TypingChallengeActivity::class.java
             ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
             ChallengeType.CHARGER -> ChargerChallengeActivity::class.java
@@ -164,8 +151,7 @@ class AlarmRingingActivity : ComponentActivity() {
 fun AlarmRingingScreen(
     alarmLabel: String,
     challengeType: ChallengeType,
-    onStartChallenge: () -> Unit,
-    onTestStopAlarm: () -> Unit
+    onStartChallenge: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -196,12 +182,12 @@ fun AlarmRingingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: Lock Pill and Temporary Test Stop Button
+            // Top Bar: Lock Pill
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(36.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
@@ -209,7 +195,7 @@ fun AlarmRingingScreen(
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                         .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -222,32 +208,13 @@ fun AlarmRingingScreen(
                     Text(
                         text = if (challengeType == ChallengeType.CHARGER) "LOCKED: ACTION REQUIRED" else "LOCKED: 3-STAGE DISMISSAL",
                         fontWeight = FontWeight.Black,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-
-                // TEMPORARY TEST CODE - REMOVE LATER
-                if (SHOW_TEST_STOP_BUTTON) {
-                    OutlinedButton(
-                        onClick = onTestStopAlarm,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .height(30.dp)
-                            .testTag("test_stop_alarm_button")
-                    ) {
-                        Icon(Icons.Default.StopCircle, contentDescription = null, modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text(
-                            text = "TEST: Stop Alarm",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
             }
 
-            // Central Branding & Alarm Clock Visual (weight 1f, strictly non-scrollable)
+            // Central Alarm Clock Visual
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
@@ -264,7 +231,6 @@ fun AlarmRingingScreen(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Simple vector alarm-bell symbol drawn in the theme's main color
                     Box(
                         modifier = Modifier
                             .size(iconBoxSize)

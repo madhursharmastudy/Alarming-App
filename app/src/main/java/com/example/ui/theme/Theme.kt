@@ -10,64 +10,67 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 /**
- * Dark theme: background #0B0B0F, main color gold #D4AF37.
- * Uses only these two colors for all text, icons, buttons, borders, cards, and progress bars.
- * Lower alpha (10% to 40%) used for soft surfaces, disabled states, and dividers.
- * Text on gold buttons uses background color.
+ * Dark theme:
+ * - background #0D0D0D (near-black)
+ * - main/accent color #E53935 (bright red)
+ * - text on accent color uses #0D0D0D
  */
 private val AurumDarkColorScheme = darkColorScheme(
-    primary = AurumDarkGold,
+    primary = AurumDarkAccent,
     onPrimary = AurumDarkBackground,
-    primaryContainer = AurumDarkGold.copy(alpha = 0.22f),
-    onPrimaryContainer = AurumDarkGold,
-    secondary = AurumDarkGold,
+    primaryContainer = AurumDarkAccent.copy(alpha = 0.20f),
+    onPrimaryContainer = AurumDarkAccent,
+    secondary = AurumDarkAccent,
     onSecondary = AurumDarkBackground,
-    secondaryContainer = AurumDarkGold.copy(alpha = 0.15f),
-    onSecondaryContainer = AurumDarkGold,
+    secondaryContainer = AurumDarkAccent.copy(alpha = 0.14f),
+    onSecondaryContainer = AurumDarkAccent,
     background = AurumDarkBackground,
-    onBackground = AurumDarkGold,
+    onBackground = AurumDarkAccent,
     surface = AurumDarkBackground,
-    onSurface = AurumDarkGold,
-    surfaceVariant = AurumDarkGold.copy(alpha = 0.12f),
-    onSurfaceVariant = AurumDarkGold.copy(alpha = 0.80f),
-    outline = AurumDarkGold.copy(alpha = 0.35f),
-    outlineVariant = AurumDarkGold.copy(alpha = 0.20f),
-    error = AurumDarkGold,
+    onSurface = AurumDarkAccent,
+    surfaceVariant = AurumDarkAccent.copy(alpha = 0.12f),
+    onSurfaceVariant = AurumDarkAccent.copy(alpha = 0.85f),
+    outline = AurumDarkAccent.copy(alpha = 0.35f),
+    outlineVariant = AurumDarkAccent.copy(alpha = 0.20f),
+    error = AurumDarkAccent,
     onError = AurumDarkBackground,
-    errorContainer = AurumDarkGold.copy(alpha = 0.25f),
-    onErrorContainer = AurumDarkGold
+    errorContainer = AurumDarkAccent.copy(alpha = 0.20f),
+    onErrorContainer = AurumDarkAccent
 )
 
 /**
- * Light theme: background #F7F3E8, main color deep gold #8A6D12.
- * Text on deep gold buttons uses background color.
+ * Light theme:
+ * - background #FAFAFA (near-white)
+ * - main/accent color #C62828 (dark red)
+ * - text on accent color uses #FFFFFF
  */
 private val AurumLightColorScheme = lightColorScheme(
-    primary = AurumLightDeepGold,
-    onPrimary = AurumLightBackground,
-    primaryContainer = AurumLightDeepGold.copy(alpha = 0.20f),
-    onPrimaryContainer = AurumLightDeepGold,
-    secondary = AurumLightDeepGold,
-    onSecondary = AurumLightBackground,
-    secondaryContainer = AurumLightDeepGold.copy(alpha = 0.14f),
-    onSecondaryContainer = AurumLightDeepGold,
+    primary = AurumLightAccent,
+    onPrimary = Color.White,
+    primaryContainer = AurumLightAccent.copy(alpha = 0.18f),
+    onPrimaryContainer = AurumLightAccent,
+    secondary = AurumLightAccent,
+    onSecondary = Color.White,
+    secondaryContainer = AurumLightAccent.copy(alpha = 0.12f),
+    onSecondaryContainer = AurumLightAccent,
     background = AurumLightBackground,
-    onBackground = AurumLightDeepGold,
+    onBackground = AurumLightAccent,
     surface = AurumLightBackground,
-    onSurface = AurumLightDeepGold,
-    surfaceVariant = AurumLightDeepGold.copy(alpha = 0.10f),
-    onSurfaceVariant = AurumLightDeepGold.copy(alpha = 0.80f),
-    outline = AurumLightDeepGold.copy(alpha = 0.35f),
-    outlineVariant = AurumLightDeepGold.copy(alpha = 0.18f),
-    error = AurumLightDeepGold,
-    onError = AurumLightBackground,
-    errorContainer = AurumLightDeepGold.copy(alpha = 0.22f),
-    onErrorContainer = AurumLightDeepGold
+    onSurface = AurumLightAccent,
+    surfaceVariant = AurumLightAccent.copy(alpha = 0.10f),
+    onSurfaceVariant = AurumLightAccent.copy(alpha = 0.85f),
+    outline = AurumLightAccent.copy(alpha = 0.35f),
+    outlineVariant = AurumLightAccent.copy(alpha = 0.18f),
+    error = AurumLightAccent,
+    onError = Color.White,
+    errorContainer = AurumLightAccent.copy(alpha = 0.20f),
+    onErrorContainer = AurumLightAccent
 )
 
 @Composable
@@ -96,8 +99,7 @@ fun MyApplicationTheme(
             val window = (view.context as? Activity)?.window
             if (window != null) {
                 val insetsController = WindowCompat.getInsetsController(window, view)
-                // Light icons on dark theme (appearanceLight = false)
-                // Dark icons on light theme (appearanceLight = true)
+                // Light icons on dark theme, dark icons on light theme
                 insetsController.isAppearanceLightStatusBars = !useDark
                 insetsController.isAppearanceLightNavigationBars = !useDark
             }

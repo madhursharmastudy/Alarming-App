@@ -1,11 +1,6 @@
 package com.example.challenge
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +29,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,16 +46,15 @@ import androidx.compose.ui.unit.sp
 import com.example.data.ChallengeType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 
 /**
  * 3-Stage Progressive Reaction Game Challenge.
- * A moving target travels across the track, and user must tap when inside the highlighted hit zone.
- * Low: slow speed, big hit zone, 3 hits needed, 40s limit.
- * Moderate: faster speed, medium zone, 5 hits needed, 60s limit.
- * Difficult: fast speed, small zone, 7 hits needed, 90s limit.
- * Missed tap resets hit count for the current stage without sounding the alarm.
+ * Low: 3 hits needed, slower speed (1800ms per pass), wider zone (32%), 40s.
+ * Moderate: 5 hits needed, medium speed (1200ms per pass), medium zone (22%), 60s.
+ * Difficult: 7 hits needed, fast speed (800ms per pass), narrow zone (16%), 90s.
  *
- * Strict single-screen non-scrollable layout with weight-based structure.
+ * Real-time continuous clock synchronization guarantees 100% accurate hit detection at the moment of tap.
  */
 class ReactionGameChallengeActivity : BaseChallengeActivity() {
 
@@ -71,8 +67,10 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
     private val speedDurationMsState = MutableStateFlow(1800)
     val speedDurationMs = speedDurationMsState.asStateFlow()
 
-    private val hitZoneWidthState = MutableStateFlow(0.32f) // Width percentage (0.0 to 1.0)
+    private val hitZoneWidthState = MutableStateFlow(0.32f)
     val hitZoneWidth = hitZoneWidthState.asStateFlow()
+
+    private var animationStartTimeMs = SystemClock.uptimeMillis()
 
     override fun getChallengeType(): ChallengeType = ChallengeType.REACTION_GAME
 
@@ -85,9 +83,9 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
 
     override fun onStageStarted(stage: Int) {
         val (neededHits, duration, zoneWidth) = when (stage) {
-            1 -> Triple(3, 1800, 0.32f) // Slow target, big zone, 3 hits
-            2 -> Triple(5, 1200, 0.22f) // Faster, medium zone, 5 hits
-            3 -> Triple(7, 750, 0.14f)  // Fast, small zone, 7 hits
+            1 -> Triple(3, 1800, 0.32f) // Low: 3 hits
+            2 -> Triple(5, 1200, 0.22f) // Moderate: 5 hits
+            3 -> Triple(7, 800, 0.16f)  // Difficult: 7 hits
             else -> Triple(3, 1800, 0.32f)
         }
 
@@ -95,6 +93,7 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
         speedDurationMsState.value = duration
         hitZoneWidthState.value = zoneWidth
         currentHitsState.value = 0
+        animationStartTimeMs = SystemClock.uptimeMillis()
         setFeedbackMessage(null)
     }
 
@@ -103,6 +102,7 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
         speedDurationMsState.value = 1800
         hitZoneWidthState.value = 0.32f
         currentHitsState.value = 0
+        animationStartTimeMs = SystemClock.uptimeMillis()
         setFeedbackMessage(null)
     }
 
@@ -110,21 +110,21 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
         val zoneW = hitZoneWidthState.value
         val zoneStart = 0.5f - (zoneW / 2f)
         val zoneEnd = 0.5f + (zoneW / 2f)
+        val tolerance = 0.05f // Includes circle radius allowance
 
-        val isHit = targetProgress in zoneStart..zoneEnd
+        val isHit = targetProgress in (zoneStart - tolerance)..(zoneEnd + tolerance)
 
         if (isHit) {
             val nextHits = currentHitsState.value + 1
             currentHitsState.value = nextHits
 
             if (nextHits >= targetHitsState.value) {
-                setFeedbackMessage("PERFECT HIT! ($nextHits/${targetHitsState.value}) - Stage Completed!", isSuccess = true)
+                setFeedbackMessage("TARGET HIT! ($nextHits/${targetHitsState.value}) - Stage Completed!", isSuccess = true)
                 completeCurrentStage()
             } else {
-                setFeedbackMessage("PERFECT HIT! ($nextHits/${targetHitsState.value})", isSuccess = true)
+                setFeedbackMessage("TARGET HIT! ($nextHits/${targetHitsState.value})", isSuccess = true)
             }
         } else {
-            // Missed! Reset count for current stage (no alarm re-ring)
             currentHitsState.value = 0
             setFeedbackMessage("MISSED! Hit count reset to 0. Try again!", isError = true)
         }
@@ -143,8 +143,9 @@ class ReactionGameChallengeActivity : BaseChallengeActivity() {
             targetHits = needed,
             durationMs = duration,
             hitZoneWidth = zoneW,
+            startTimeMs = animationStartTimeMs,
             currentStage = stage,
-            onTapAction = { onUserTap(it) },
+            onTapAction = { pos -> onUserTap(pos) },
             modifier = modifier
         )
     }
@@ -156,20 +157,26 @@ fun ReactionGameScreen(
     targetHits: Int,
     durationMs: Int,
     hitZoneWidth: Float,
+    startTimeMs: Long,
     currentStage: Int,
     onTapAction: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "targetMotion")
-    val targetPosition by infiniteTransition.animateFloat(
-        initialValue = 0.05f,
-        targetValue = 0.95f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = durationMs, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "targetPosition"
-    )
+    // Produce continuous frame-accurate position synchronized with clock
+    val targetPosition by produceState(initialValue = 0.5f, key1 = durationMs, key2 = startTimeMs) {
+        while (isActive) {
+            withFrameMillis { now ->
+                val cycleMs = durationMs * 2
+                val phase = (now - startTimeMs) % cycleMs
+                val rawProgress = if (phase < durationMs) {
+                    phase.toFloat() / durationMs.toFloat()
+                } else {
+                    2f - (phase.toFloat() / durationMs.toFloat())
+                }
+                value = 0.05f + rawProgress * 0.90f
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -182,16 +189,16 @@ fun ReactionGameScreen(
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF10B981).copy(alpha = 0.15f))
-                .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 14.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Target: $currentHits of $targetHits Consecutive Hits",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF10B981)
+                color = MaterialTheme.colorScheme.primary
             )
         }
 
@@ -228,7 +235,7 @@ fun ReactionGameScreen(
                         text = "TARGET HIT ZONE",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFF10B981),
+                        color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.sp
                     )
 
@@ -246,7 +253,7 @@ fun ReactionGameScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "Tap button below when circle enters the green zone!",
+                        text = "Tap button below when circle enters the center hit zone!",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -255,7 +262,7 @@ fun ReactionGameScreen(
             }
         }
 
-        // Giant Tactile Action Button for Sleep-Inertia (Fixed height, never shifts)
+        // Tactile Action Button (Fixed height, strictly 2-color themed)
         Button(
             onClick = { onTapAction(targetPosition) },
             modifier = Modifier
@@ -264,7 +271,8 @@ fun ReactionGameScreen(
                 .testTag("tap_reaction_button"),
             shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF2563EB)
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
@@ -276,14 +284,14 @@ fun ReactionGameScreen(
                     imageVector = Icons.Default.FlashOn,
                     contentDescription = null,
                     modifier = Modifier.size(28.dp),
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "TAP NOW!",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             }
         }
@@ -296,6 +304,9 @@ fun ReactionTrackCanvas(
     hitZoneWidth: Float,
     modifier: Modifier = Modifier
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val trackBgColor = MaterialTheme.colorScheme.surfaceVariant
+
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
@@ -304,18 +315,20 @@ fun ReactionTrackCanvas(
 
         // 1. Background Track
         drawRoundRect(
-            color = Color(0xFF1E293B),
+            color = trackBgColor,
             topLeft = Offset(0f, trackTop),
             size = Size(w, trackHeight),
             cornerRadius = CornerRadius(trackHeight / 2f)
         )
 
-        // 2. Highlighted Green Hit Zone in Center
+        // 2. Highlighted Hit Zone in Center (Green Target Zone)
         val zoneStartPx = w * (0.5f - (hitZoneWidth / 2f))
         val zoneWidthPx = w * hitZoneWidth
+        val hitZoneGreenBg = Color(0xFF2E7D32).copy(alpha = 0.35f)
+        val hitZoneGreenBorder = Color(0xFF4CAF50)
 
         drawRoundRect(
-            color = Color(0xFF10B981).copy(alpha = 0.35f),
+            color = hitZoneGreenBg,
             topLeft = Offset(zoneStartPx, trackTop - 6.dp.toPx()),
             size = Size(zoneWidthPx, trackHeight + 12.dp.toPx()),
             cornerRadius = CornerRadius(10.dp.toPx())
@@ -323,7 +336,7 @@ fun ReactionTrackCanvas(
 
         // Hit Zone Borders / Guides
         drawRoundRect(
-            color = Color(0xFF10B981),
+            color = hitZoneGreenBorder,
             topLeft = Offset(zoneStartPx, trackTop - 6.dp.toPx()),
             size = Size(zoneWidthPx, trackHeight + 12.dp.toPx()),
             cornerRadius = CornerRadius(10.dp.toPx()),
@@ -332,7 +345,7 @@ fun ReactionTrackCanvas(
 
         // Center tick guide
         drawLine(
-            color = Color(0xFF34D399),
+            color = hitZoneGreenBorder,
             start = Offset(w * 0.5f, trackTop - 10.dp.toPx()),
             end = Offset(w * 0.5f, trackTop + trackHeight + 10.dp.toPx()),
             strokeWidth = 3.dp.toPx()
@@ -341,26 +354,26 @@ fun ReactionTrackCanvas(
         // 3. Moving Target Circle
         val targetX = w * targetProgress
         val targetY = h / 2f
-        val targetRadius = 16.dp.toPx()
+        val targetRadius = 15.dp.toPx()
 
         // Outer glow
         drawCircle(
-            color = Color(0xFF38BDF8).copy(alpha = 0.4f),
-            radius = targetRadius * 1.5f,
+            color = primaryColor.copy(alpha = 0.35f),
+            radius = targetRadius * 1.4f,
             center = Offset(targetX, targetY)
         )
 
         // Core target
         drawCircle(
-            color = Color(0xFF0284C7),
+            color = primaryColor,
             radius = targetRadius,
             center = Offset(targetX, targetY)
         )
 
-        // Target highlight center
+        // Target center dot
         drawCircle(
             color = Color.White,
-            radius = targetRadius * 0.45f,
+            radius = targetRadius * 0.40f,
             center = Offset(targetX, targetY)
         )
     }

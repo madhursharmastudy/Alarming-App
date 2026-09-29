@@ -18,6 +18,8 @@ class Converters {
         when {
             value.equals("PUZZLE", ignoreCase = true) -> ChallengeType.IMAGE_ARRANGEMENT
             value.equals("WORD_SCRAMBLE", ignoreCase = true) -> ChallengeType.CARD_ARRANGEMENT
+            value.equals("AUDIO", ignoreCase = true) -> ChallengeType.MATH
+            value.equals("CAMERA", ignoreCase = true) -> ChallengeType.MATH
             else -> ChallengeType.valueOf(value)
         }
     } catch (e: Exception) {
@@ -37,7 +39,13 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [AlarmEntity::class], version = 3, exportSchema = false)
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE alarms SET challengeType = 'MATH' WHERE challengeType IN ('AUDIO', 'CAMERA')")
+    }
+}
+
+@Database(entities = [AlarmEntity::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
@@ -53,7 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "force_alarm_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                 INSTANCE = instance
                 instance

@@ -117,9 +117,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
-import com.example.challenge.AudioChallengeActivity
-import com.example.challenge.CameraChallengeActivity
-import com.example.challenge.CameraPreviewComposable
+import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
 import com.example.challenge.ImageArrangementChallengeActivity
 import com.example.challenge.MathChallengeActivity
@@ -130,7 +128,6 @@ import com.example.challenge.ReactionGameChallengeActivity
 import com.example.challenge.ShakeChallengeActivity
 import com.example.challenge.StepsChallengeActivity
 import com.example.challenge.TypingChallengeActivity
-import com.example.challenge.CardArrangementChallengeActivity
 import com.example.data.AlarmEntity
 import com.example.data.AlarmRepository
 import com.example.data.AppDatabase
@@ -140,9 +137,6 @@ import com.example.service.AlarmRingingService
 import com.example.service.AlarmScheduler
 import com.example.ui.AlarmRingingActivity
 import com.example.ui.theme.MyApplicationTheme
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.label.ImageLabeling
-import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -187,8 +181,6 @@ class MainActivity : ComponentActivity() {
 
     private fun launchChallengeDirectly(type: ChallengeType) {
         val targetClass = when (type) {
-            ChallengeType.AUDIO -> AudioChallengeActivity::class.java
-            ChallengeType.CAMERA -> CameraChallengeActivity::class.java
             ChallengeType.TYPING -> TypingChallengeActivity::class.java
             ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
             ChallengeType.CHARGER -> ChargerChallengeActivity::class.java
@@ -461,40 +453,38 @@ fun QuickChallengeTestBar(onTestChallenge: (ChallengeType) -> Unit) {
 
 @Composable
 fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
-    val (icon, color) = when (type) {
-        ChallengeType.AUDIO -> Icons.Default.Mic to Color(0xFF8B5CF6)
-        ChallengeType.CAMERA -> Icons.Default.CameraAlt to Color(0xFF06B6D4)
-        ChallengeType.TYPING -> Icons.Default.Keyboard to Color(0xFF10B981)
-        ChallengeType.IMAGE_ARRANGEMENT -> Icons.Default.GridOn to Color(0xFFF59E0B)
-        ChallengeType.CHARGER -> Icons.Default.Power to Color(0xFFEF4444)
-        ChallengeType.CARD_ARRANGEMENT -> Icons.Default.GridOn to Color(0xFF38BDF8)
-        ChallengeType.PATTERN_LOCK -> Icons.Default.Lock to Color(0xFFF97316)
-        ChallengeType.ODD_ONE_OUT -> Icons.Default.Visibility to Color(0xFFEC4899)
-        ChallengeType.REACTION_GAME -> Icons.Default.Speed to Color(0xFF22C55E)
-        ChallengeType.MATH -> Icons.Default.Science to Color(0xFF3B82F6)
-        ChallengeType.SHAKE -> Icons.Default.PhoneAndroid to Color(0xFFA855F7)
-        ChallengeType.STEPS -> Icons.Default.Timer to Color(0xFF14B8A6)
-        ChallengeType.QR -> Icons.Default.QrCode to Color(0xFF6366F1)
+    val icon = when (type) {
+        ChallengeType.TYPING -> Icons.Default.Keyboard
+        ChallengeType.IMAGE_ARRANGEMENT -> Icons.Default.GridOn
+        ChallengeType.CHARGER -> Icons.Default.Power
+        ChallengeType.CARD_ARRANGEMENT -> Icons.Default.GridOn
+        ChallengeType.PATTERN_LOCK -> Icons.Default.Lock
+        ChallengeType.ODD_ONE_OUT -> Icons.Default.Visibility
+        ChallengeType.REACTION_GAME -> Icons.Default.Speed
+        ChallengeType.MATH -> Icons.Default.Science
+        ChallengeType.SHAKE -> Icons.Default.PhoneAndroid
+        ChallengeType.STEPS -> Icons.Default.Timer
+        ChallengeType.QR -> Icons.Default.QrCode
     }
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.14f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f)),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
         modifier = Modifier.testTag("test_chip_${type.name}")
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(imageVector = icon, contentDescription = type.displayName, tint = color, modifier = Modifier.size(16.dp))
+            Icon(imageVector = icon, contentDescription = type.displayName, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = type.displayName.split(" ").first(),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = color
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -654,11 +644,9 @@ fun AddEditAlarmSheet(
     var selectedHour by remember { mutableIntStateOf(initialAlarm?.hour ?: cal.get(Calendar.HOUR_OF_DAY)) }
     var selectedMinute by remember { mutableIntStateOf(initialAlarm?.minute ?: ((cal.get(Calendar.MINUTE) + 2) % 60)) }
     var label by remember { mutableStateOf(initialAlarm?.label ?: "Wake Up Routine") }
-    var selectedChallengeType by remember { mutableStateOf(initialAlarm?.challengeType ?: ChallengeType.AUDIO) }
+    var selectedChallengeType by remember { mutableStateOf(initialAlarm?.challengeType ?: ChallengeType.MATH) }
     var selectedDays by remember { mutableIntStateOf(initialAlarm?.daysOfWeek ?: 127) }
-    var refLabels by remember { mutableStateOf(initialAlarm?.referenceLabels ?: "Cup, Sink, Bathroom, Tableware") }
-
-    var showCameraDialog by remember { mutableStateOf(false) }
+    var refLabels by remember { mutableStateOf(initialAlarm?.referenceLabels ?: "") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -789,46 +777,6 @@ fun AddEditAlarmSheet(
                 }
             }
 
-            // If Camera Challenge Selected, show Reference Photo Selector
-            if (selectedChallengeType == ChallengeType.CAMERA) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Reference Photo Matching",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = "Target labels: $refLabels",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                            OutlinedButton(
-                                onClick = { showCameraDialog = true },
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = "Capture", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Snap Reference", fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(20.dp))
 
             // Save Action Button
@@ -853,124 +801,6 @@ fun AddEditAlarmSheet(
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text("Save & Schedule Alarm", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-
-    if (showCameraDialog) {
-        ReferencePhotoCaptureDialog(
-            onDismiss = { showCameraDialog = false },
-            onLabelsDetected = { labels ->
-                refLabels = labels.joinToString(", ") { it.first }
-                showCameraDialog = false
-            }
-        )
-    }
-}
-
-@Composable
-fun ReferencePhotoCaptureDialog(
-    onDismiss: () -> Unit,
-    onLabelsDetected: (List<Pair<String, Float>>) -> Unit
-) {
-    val context = LocalContext.current
-    var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
-    var detectedList by remember { mutableStateOf<List<Pair<String, Float>>>(emptyList()) }
-    var isAnalyzing by remember { mutableStateOf(false) }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(480.dp),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Snap Reference Photo",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CameraPreviewComposable(
-                        modifier = Modifier.fillMaxSize(),
-                        onImageCaptureReady = { capture -> imageCapture = capture }
-                    )
-                }
-
-                if (detectedList.isNotEmpty()) {
-                    Text(
-                        text = "Detected: ${detectedList.take(3).joinToString { "${it.first} (${(it.second * 100).toInt()}%)" }}",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Button(
-                        onClick = {
-                            val capture = imageCapture ?: return@Button
-                            isAnalyzing = true
-                            capture.takePicture(
-                                ContextCompat.getMainExecutor(context),
-                                object : ImageCapture.OnImageCapturedCallback() {
-                                    override fun onCaptureSuccess(imageProxy: ImageProxy) {
-                                        val buffer = imageProxy.planes[0].buffer
-                                        val bytes = ByteArray(buffer.remaining())
-                                        buffer.get(bytes)
-                                        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                        imageProxy.close()
-                                        if (bitmap != null) {
-                                            val image = InputImage.fromBitmap(bitmap, 0)
-                                            val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
-                                            labeler.process(image)
-                                                .addOnSuccessListener { labels ->
-                                                    isAnalyzing = false
-                                                    val list = labels.map { Pair(it.text, it.confidence) }
-                                                    if (list.isNotEmpty()) {
-                                                        onLabelsDetected(list)
-                                                    } else {
-                                                        onLabelsDetected(listOf(Pair("Room Item", 0.9f)))
-                                                    }
-                                                }
-                                                .addOnFailureListener {
-                                                    isAnalyzing = false
-                                                    onLabelsDetected(listOf(Pair("Sink", 0.9f), Pair("Cup", 0.85f)))
-                                                }
-                                        }
-                                    }
-
-                                    override fun onError(exception: ImageCaptureException) {
-                                        isAnalyzing = false
-                                        onLabelsDetected(listOf(Pair("Bathroom", 0.9f), Pair("Sink", 0.85f)))
-                                    }
-                                }
-                            )
-                        }
-                    ) {
-                        Text(if (isAnalyzing) "Analyzing..." else "Snap & Save Object")
-                    }
-                }
             }
         }
     }

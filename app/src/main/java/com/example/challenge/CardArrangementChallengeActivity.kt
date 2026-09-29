@@ -1,10 +1,9 @@
 package com.example.challenge
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -46,8 +45,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +60,7 @@ import com.example.data.ChallengeType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 class CardArrangementChallengeActivity : BaseChallengeActivity() {
@@ -109,7 +111,6 @@ class CardArrangementChallengeActivity : BaseChallengeActivity() {
         currentGrid[toRow][toCol] = temp
         gridState.value = currentGrid
 
-        // Auto-accept check
         val solved = CardArrangementData.isStageSolved(
             grid = currentGrid,
             cardsPerSuit = cardsPerSuitState.value,
@@ -176,13 +177,14 @@ fun CardArrangementScreen(
     onTaskCompleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardBounds = remember { mutableStateMapOf<CardCoord, Rect>() }
+    val density = LocalDensity.current
+    var rootLayoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val slotCoordinates = remember { mutableStateMapOf<CardCoord, LayoutCoordinates>() }
 
     var selectedCoord by remember { mutableStateOf<CardCoord?>(null) }
     var activeDragOrigin by remember { mutableStateOf<CardCoord?>(null) }
     var activeDragCard by remember { mutableStateOf<PlayingCard?>(null) }
-    var dragGlobalPosition by remember { mutableStateOf(Offset.Zero) }
-    var hoveredCoord by remember { mutableStateOf<CardCoord?>(null) }
+    var dragOffsetInRoot by remember { mutableStateOf(Offset.Zero) }
 
     var buttonDisabledUntil by remember { mutableLongStateOf(0L) }
     var isButtonDisabled by remember { mutableStateOf(false) }
@@ -195,29 +197,20 @@ fun CardArrangementScreen(
         }
     }
 
-    fun findHoveredCoord(pos: Offset): CardCoord? {
-        cardBounds.forEach { (coord, rect) ->
-            if (rect.contains(pos)) return coord
-        }
-        return null
-    }
-
     val correctCount = CardArrangementData.countCorrectCards(grid, orderMatters, expectedRanks)
     val totalCount = cardsPerSuit * 4
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .onGloballyPositioned { rootLayoutCoordinates = it }
+    ) {
         val totalW = maxWidth
         val totalH = maxHeight
 
-        // Fixed reserved heights:
-        // Top instruction pill: 32dp
-        // Bottom task completed button: 44dp
-        // Bottom spacing: 8dp
-        // Total fixed overhead: ~84dp
         val availableH = (totalH - 84.dp).coerceAtLeast(160.dp)
         val rowH = (availableH / 4).coerceIn(36.dp, 76.dp)
 
-        // Card width: available width minus suit column (32dp) minus spacing
         val availableW = (totalW - 40.dp).coerceAtLeast(120.dp)
         val cardW = (availableW / cardsPerSuit.coerceAtLeast(1)).coerceIn(24.dp, 64.dp)
         val cardH = (rowH - 6.dp).coerceAtLeast(30.dp)
@@ -310,20 +303,20 @@ fun CardArrangementScreen(
                                     val card = rowCards.getOrNull(c)
                                     val coord = CardCoord(r, c)
                                     val isSelected = selectedCoord == coord
-                                    val isHovered = hoveredCoord == coord
                                     val isBeingDragged = activeDragOrigin == coord
 
                                     if (card != null) {
-                                        PlayingCardView(
+                                        PlayingCardSlotView(
                                             card = card,
                                             expectedSuit = rowSuit,
                                             isSelected = isSelected,
-                                            isHovered = isHovered,
                                             isBeingDragged = isBeingDragged,
                                             modifier = Modifier
                                                 .width(cardW)
                                                 .height(cardH)
-                                                .onGloballyPositioned { cardBounds[coord] = it.boundsInRoot() },
+                                                .onGloballyPositioned { layoutCoords ->
+                                                    slotCoordinates[coord] = layoutCoords
+                                                },
                                             onTap = {
                                                 val sel = selectedCoord
                                                 if (sel == null) {
@@ -333,26 +326,57 @@ fun CardArrangementScreen(
                                                     selectedCoord = null
                                                 }
                                             },
-                                            onDragStart = { offset ->
+                                            onDragStart = {
                                                 activeDragOrigin = coord
                                                 activeDragCard = card
-                                                cardBounds[coord]?.let {
-                                                    dragGlobalPosition = it.topLeft + offset
+                                                val root = rootLayoutCoordinates
+                                                val slot = slotCoordinates[coord]
+                                                if (root != null && slot != null && slot.isAttached) {
+                                                    val localPos = root.localPositionOf(slot, Offset.Zero)
+                                                    dragOffsetInRoot = localPos
                                                 }
                                             },
-                                            onDrag = { amount ->
-                                                dragGlobalPosition += amount
-                                                hoveredCoord = findHoveredCoord(dragGlobalPosition)
+                                            onDrag = { delta ->
+                                                dragOffsetInRoot += delta
                                             },
-                                            onDragEnd = {
-                                                activeDragOrigin?.let { origin ->
-                                                    hoveredCoord?.let { target ->
-                                                        onSwap(origin.row, origin.col, target.row, target.col)
+                                            onDragRelease = {
+                                                val root = rootLayoutCoordinates
+                                                val origin = activeDragOrigin
+                                                if (root != null && origin != null) {
+                                                    val cardWidthPx = with(density) { cardW.toPx() }
+                                                    val cardHeightPx = with(density) { cardH.toPx() }
+                                                    val releaseCenter = dragOffsetInRoot + Offset(cardWidthPx / 2f, cardHeightPx / 2f)
+
+                                                    // Find which slot was hovered or closest on release
+                                                    var targetCoord: CardCoord? = null
+                                                    var minDistance = Float.MAX_VALUE
+
+                                                    slotCoordinates.forEach { (coord, slotCoords) ->
+                                                        if (slotCoords.isAttached) {
+                                                            val slotTopLeft = root.localPositionOf(slotCoords, Offset.Zero)
+                                                            val slotRect = Rect(slotTopLeft, slotCoords.size.let { Offset(it.width.toFloat(), it.height.toFloat()) })
+                                                            if (slotRect.contains(releaseCenter)) {
+                                                                targetCoord = coord
+                                                                minDistance = 0f
+                                                            } else if (minDistance > 0f) {
+                                                                val slotCenter = slotRect.center
+                                                                val dist = hypot(releaseCenter.x - slotCenter.x, releaseCenter.y - slotCenter.y)
+                                                                if (dist < minDistance && dist < cardWidthPx * 2.0f) {
+                                                                    minDistance = dist
+                                                                    targetCoord = coord
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (targetCoord != null && targetCoord != origin) {
+                                                        onSwap(origin.row, origin.col, targetCoord!!.row, targetCoord!!.col)
                                                     }
                                                 }
+
+                                                // Always clean up dragged state so card snaps cleanly
                                                 activeDragOrigin = null
                                                 activeDragCard = null
-                                                hoveredCoord = null
                                                 selectedCoord = null
                                             }
                                         )
@@ -366,7 +390,7 @@ fun CardArrangementScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Big Always-Visible Task Completed Button
+            // Task Completed Button
             Button(
                 onClick = {
                     if (!isButtonDisabled) {
@@ -396,19 +420,16 @@ fun CardArrangementScreen(
             }
         }
 
-        // Floating Dragged Card Preview (drawn above all content)
+        // Floating Dragged Card Preview (drawn above all content, snapped cleanly on release)
         activeDragCard?.let { card ->
             Box(
                 modifier = Modifier
                     .offset {
-                        IntOffset(
-                            (dragGlobalPosition.x - cardW.toPx() / 2).roundToInt(),
-                            (dragGlobalPosition.y - cardH.toPx() / 2).roundToInt()
-                        )
+                        IntOffset(dragOffsetInRoot.x.roundToInt(), dragOffsetInRoot.y.roundToInt())
                     }
                     .size(cardW, cardH)
                     .zIndex(100f)
-                    .scale(1.12f)
+                    .scale(1.10f)
                     .shadow(12.dp, RoundedCornerShape(6.dp))
                     .clip(RoundedCornerShape(6.dp))
                     .background(Color(0xFFF7F3E8))
@@ -438,46 +459,67 @@ fun CardArrangementScreen(
 }
 
 @Composable
-fun PlayingCardView(
+fun PlayingCardSlotView(
     card: PlayingCard,
     expectedSuit: CardSuit,
     isSelected: Boolean,
-    isHovered: Boolean,
     isBeingDragged: Boolean,
     modifier: Modifier = Modifier,
     onTap: () -> Unit,
-    onDragStart: (Offset) -> Unit,
+    onDragStart: () -> Unit,
     onDrag: (Offset) -> Unit,
-    onDragEnd: () -> Unit
+    onDragRelease: () -> Unit
 ) {
     val isSuitCorrect = card.suit == expectedSuit
 
     val borderColor = when {
-        isHovered || isSelected -> MaterialTheme.colorScheme.primary
+        isSelected -> MaterialTheme.colorScheme.primary
         isSuitCorrect -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
         else -> Color(0xFF666666).copy(alpha = 0.4f)
     }
 
-    val borderWidth = if (isHovered || isSelected) 2.5.dp else 1.dp
-    val alpha = if (isBeingDragged) 0.25f else 1.0f
+    val borderWidth = if (isSelected) 2.5.dp else 1.dp
+    val alpha = if (isBeingDragged) 0.20f else 1.0f
 
-    // Ivory/cream face: #F7F3E8
     Card(
         modifier = modifier
-            .scale(alpha)
             .clip(RoundedCornerShape(6.dp))
             .border(borderWidth, borderColor, RoundedCornerShape(6.dp))
-            .clickable { onTap() }
             .pointerInput(card.id) {
-                detectDragGestures(
-                    onDragStart = { offset -> onDragStart(offset) },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        onDrag(dragAmount)
-                    },
-                    onDragEnd = onDragEnd,
-                    onDragCancel = onDragEnd
-                )
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val pointerId = down.id
+                    var isDragging = false
+                    var totalDrag = Offset.Zero
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                            if (!change.pressed) {
+                                if (isDragging) {
+                                    onDragRelease()
+                                } else {
+                                    onTap()
+                                }
+                                break
+                            }
+                            val dragDelta = change.positionChange()
+                            totalDrag += dragDelta
+                            if (!isDragging && totalDrag.getDistance() > 8.dp.toPx()) {
+                                isDragging = true
+                                onDragStart()
+                            }
+                            if (isDragging) {
+                                change.consume()
+                                onDrag(dragDelta)
+                            }
+                        }
+                    } finally {
+                        if (isDragging) {
+                            onDragRelease()
+                        }
+                    }
+                }
             }
             .testTag("card_${card.suit.name}_${card.rank.label}"),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F3E8)),
@@ -487,7 +529,8 @@ fun PlayingCardView(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(2.dp),
+                .padding(2.dp)
+                .scale(alpha),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {

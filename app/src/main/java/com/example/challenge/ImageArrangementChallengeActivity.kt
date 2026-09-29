@@ -5,7 +5,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -53,9 +54,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -68,6 +71,7 @@ import com.example.data.ChallengeType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -274,14 +278,13 @@ fun ImageArrangementScreen(
     onTaskCompleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val boardBounds = remember { mutableStateMapOf<Int, Rect>() }
-    val holdingBounds = remember { mutableStateMapOf<Int, Rect>() }
+    var rootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val boardSlotCoordinates = remember { mutableStateMapOf<Int, LayoutCoordinates>() }
+    val holdingSlotCoordinates = remember { mutableStateMapOf<Int, LayoutCoordinates>() }
 
     var activeDragOrigin by remember { mutableStateOf<SlotTarget?>(null) }
     var activeDragPieceId by remember { mutableStateOf<Int?>(null) }
-    var dragGlobalPosition by remember { mutableStateOf(Offset.Zero) }
-    var dragOffsetByTouch by remember { mutableStateOf(Offset.Zero) }
-    var hoveredTarget by remember { mutableStateOf<SlotTarget?>(null) }
+    var dragOffsetInRoot by remember { mutableStateOf(Offset.Zero) }
 
     var selectedSlot by remember { mutableStateOf<SlotTarget?>(null) }
     var showFullPreview by remember { mutableStateOf(false) }
@@ -300,16 +303,6 @@ fun ImageArrangementScreen(
     val matchedCount = boardSlots.filterIndexed { index, pieceId -> pieceId == index }.size
     val totalPieces = cols * rows
 
-    fun findHoveredTarget(pos: Offset): SlotTarget? {
-        boardBounds.forEach { (index, rect) ->
-            if (rect.contains(pos)) return SlotTarget.Board(index)
-        }
-        holdingBounds.forEach { (index, rect) ->
-            if (rect.contains(pos)) return SlotTarget.Holding(index)
-        }
-        return null
-    }
-
     fun handleDrop(origin: SlotTarget, target: SlotTarget) {
         when {
             origin is SlotTarget.Board && target is SlotTarget.Board -> onSwapBoardBoard(origin.index, target.index)
@@ -319,15 +312,15 @@ fun ImageArrangementScreen(
         }
     }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .onGloballyPositioned { rootCoordinates = it }
+    ) {
+        val density = LocalDensity.current
         val totalWidth = maxWidth
         val totalHeight = maxHeight
 
-        // Fixed reserved heights:
-        // Top reference & stats row: 50.dp
-        // Holding area: 56.dp
-        // Task Completed button row: 46.dp
-        // Total fixed overhead: 50 + 56 + 46 + 16 (spacers/padding) = 168.dp
         val availableBoardW = (totalWidth - 16.dp).coerceAtLeast(100.dp)
         val availableBoardH = (totalHeight - 168.dp).coerceAtLeast(100.dp)
 
@@ -345,57 +338,68 @@ fun ImageArrangementScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header stats & large visible reference image (at least 25% screen width)
+            // Header stats & large visible reference image
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Stage $currentStage: $totalPieces Pieces (${cols}x$rows)",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = "Placed Correctly: $matchedCount / $totalPieces",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (matchedCount == totalPieces) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-
-                // Reference image: >= 25% of screen width, always visible, tap to enlarge
-                fullImage?.let { bmp ->
-                    Card(
-                        onClick = { showFullPreview = true },
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
                         modifier = Modifier
-                            .width((totalWidth * 0.28f).coerceIn(70.dp, 110.dp))
-                            .height(48.dp)
-                            .testTag("preview_target_thumbnail"),
-                        shape = RoundedCornerShape(8.dp),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                            .clickable { showFullPreview = true }
+                            .testTag("preview_thumbnail_button"),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            bitmap = bmp,
-                            contentDescription = "Target Picture Reference",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                        if (fullImage != null) {
+                            Image(
+                                bitmap = fullImage,
+                                contentDescription = "Artwork reference",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Column {
+                        Text(
+                            text = imageTitle,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = "Tap to enlarge preview",
+                            fontSize = 9.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
+
+                Text(
+                    text = "Placed: $matchedCount / $totalPieces",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
-            // Main Puzzle Board Grid (weight 1f, strictly non-scrollable, calculated from BoxWithConstraints)
+            // Grid Play Board (weight 1f, strictly non-scrollable)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -403,78 +407,130 @@ fun ImageArrangementScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Card(
-                    modifier = Modifier.size(actualBoardW + 8.dp, actualBoardH + 8.dp),
+                    modifier = Modifier
+                        .size(width = actualBoardW + 8.dp, height = actualBoardH + 8.dp)
+                        .testTag("image_puzzle_grid_card"),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    ),
                     border = CardDefaults.outlinedCardBorder().copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
                     )
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(4.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        contentAlignment = Alignment.Center
                     ) {
-                        for (r in 0 until rows) {
-                            Row(
-                                modifier = Modifier.size(actualBoardW, tileSize),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                for (c in 0 until cols) {
-                                    val slotIndex = r * cols + c
-                                    val pieceId = boardSlots.getOrNull(slotIndex)
-                                    val isMatched = pieceId != null && pieceId == slotIndex
-                                    val isSelected = selectedSlot == SlotTarget.Board(slotIndex)
-                                    val isHovered = hoveredTarget == SlotTarget.Board(slotIndex)
-                                    val isBeingDragged = activeDragOrigin == SlotTarget.Board(slotIndex)
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            for (r in 0 until rows) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    for (c in 0 until cols) {
+                                        val slotIndex = (r * cols) + c
+                                        val pieceId = boardSlots.getOrNull(slotIndex)
+                                        val isMatched = pieceId == slotIndex
+                                        val isSelected = selectedSlot == SlotTarget.Board(slotIndex)
+                                        val isBeingDragged = activeDragOrigin == SlotTarget.Board(slotIndex)
 
-                                    BoardSlotCell(
-                                        slotIndex = slotIndex,
-                                        pieceId = pieceId,
-                                        sliceBitmap = pieceId?.let { slices.getOrNull(it) },
-                                        isMatched = isMatched,
-                                        isSelected = isSelected,
-                                        isHovered = isHovered,
-                                        isBeingDragged = isBeingDragged,
-                                        modifier = Modifier.size(tileSize - 2.dp),
-                                        onPositioned = { rect -> boardBounds[slotIndex] = rect },
-                                        onDragStart = { offset, piece ->
-                                            activeDragOrigin = SlotTarget.Board(slotIndex)
-                                            activeDragPieceId = piece
-                                            dragOffsetByTouch = Offset.Zero
-                                            boardBounds[slotIndex]?.let { b ->
-                                                dragGlobalPosition = b.topLeft + offset
-                                            }
-                                        },
-                                        onDrag = { dragAmount ->
-                                            dragOffsetByTouch += dragAmount
-                                            dragGlobalPosition += dragAmount
-                                            hoveredTarget = findHoveredTarget(dragGlobalPosition)
-                                        },
-                                        onDragEnd = {
-                                            activeDragOrigin?.let { origin ->
-                                                hoveredTarget?.let { target ->
-                                                    handleDrop(origin, target)
+                                        ImagePieceSlotCell(
+                                            slotIndex = slotIndex,
+                                            pieceId = pieceId,
+                                            sliceBitmap = pieceId?.let { slices.getOrNull(it) },
+                                            isMatched = isMatched,
+                                            isSelected = isSelected,
+                                            isBeingDragged = isBeingDragged,
+                                            modifier = Modifier
+                                                .size(tileSize - 2.dp)
+                                                .onGloballyPositioned { layoutCoords ->
+                                                    boardSlotCoordinates[slotIndex] = layoutCoords
+                                                },
+                                            onTap = {
+                                                val currentSel = selectedSlot
+                                                if (currentSel == null) {
+                                                    if (pieceId != null) selectedSlot = SlotTarget.Board(slotIndex)
+                                                } else {
+                                                    handleDrop(currentSel, SlotTarget.Board(slotIndex))
+                                                    selectedSlot = null
                                                 }
-                                            }
-                                            activeDragOrigin = null
-                                            activeDragPieceId = null
-                                            hoveredTarget = null
-                                            selectedSlot = null
-                                        },
-                                        onTap = {
-                                            val currentSel = selectedSlot
-                                            if (currentSel == null) {
-                                                if (pieceId != null) selectedSlot = SlotTarget.Board(slotIndex)
-                                            } else {
-                                                handleDrop(currentSel, SlotTarget.Board(slotIndex))
+                                            },
+                                            onDragStart = { piece ->
+                                                activeDragOrigin = SlotTarget.Board(slotIndex)
+                                                activeDragPieceId = piece
+                                                val root = rootCoordinates
+                                                val slotCoords = boardSlotCoordinates[slotIndex]
+                                                if (root != null && slotCoords != null && slotCoords.isAttached) {
+                                                    dragOffsetInRoot = root.localPositionOf(slotCoords, Offset.Zero)
+                                                }
+                                            },
+                                            onDrag = { delta ->
+                                                dragOffsetInRoot += delta
+                                            },
+                                            onDragRelease = {
+                                                val root = rootCoordinates
+                                                val origin = activeDragOrigin
+                                                if (root != null && origin != null) {
+                                                    val tilePx = with(density) { tileSize.toPx() }
+                                                    val releaseCenter = dragOffsetInRoot + Offset(tilePx / 2f, tilePx / 2f)
+
+                                                    var target: SlotTarget? = null
+                                                    var minDistance = Float.MAX_VALUE
+
+                                                    // Check board slots
+                                                    boardSlotCoordinates.forEach { (idx, coords) ->
+                                                        if (coords.isAttached) {
+                                                            val topL = root.localPositionOf(coords, Offset.Zero)
+                                                            val rect = Rect(topL, coords.size.let { Offset(it.width.toFloat(), it.height.toFloat()) })
+                                                            if (rect.contains(releaseCenter)) {
+                                                                target = SlotTarget.Board(idx)
+                                                                minDistance = 0f
+                                                            } else if (minDistance > 0f) {
+                                                                val dist = hypot(releaseCenter.x - rect.center.x, releaseCenter.y - rect.center.y)
+                                                                if (dist < minDistance && dist < tilePx * 2.0f) {
+                                                                    minDistance = dist
+                                                                    target = SlotTarget.Board(idx)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    // Check holding slots
+                                                    holdingSlotCoordinates.forEach { (idx, coords) ->
+                                                        if (coords.isAttached) {
+                                                            val topL = root.localPositionOf(coords, Offset.Zero)
+                                                            val rect = Rect(topL, coords.size.let { Offset(it.width.toFloat(), it.height.toFloat()) })
+                                                            if (rect.contains(releaseCenter)) {
+                                                                target = SlotTarget.Holding(idx)
+                                                                minDistance = 0f
+                                                            } else if (minDistance > 0f) {
+                                                                val dist = hypot(releaseCenter.x - rect.center.x, releaseCenter.y - rect.center.y)
+                                                                if (dist < minDistance && dist < tilePx * 2.0f) {
+                                                                    minDistance = dist
+                                                                    target = SlotTarget.Holding(idx)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (target != null && target != origin) {
+                                                        handleDrop(origin, target!!)
+                                                    }
+                                                }
+
+                                                // Clean up drag state so item never stays floating
+                                                activeDragOrigin = null
+                                                activeDragPieceId = null
                                                 selectedSlot = null
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -482,7 +538,7 @@ fun ImageArrangementScreen(
                 }
             }
 
-            // Dedicated Holding Area Box (fixed height ~54dp)
+            // Dedicated Holding Area Box
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -524,7 +580,6 @@ fun ImageArrangementScreen(
                     ) {
                         holdingSlots.forEachIndexed { slotIndex, pieceId ->
                             val isSelected = selectedSlot == SlotTarget.Holding(slotIndex)
-                            val isHovered = hoveredTarget == SlotTarget.Holding(slotIndex)
                             val isBeingDragged = activeDragOrigin == SlotTarget.Holding(slotIndex)
 
                             HoldingSlotCell(
@@ -532,34 +587,12 @@ fun ImageArrangementScreen(
                                 pieceId = pieceId,
                                 sliceBitmap = pieceId?.let { slices.getOrNull(it) },
                                 isSelected = isSelected,
-                                isHovered = isHovered,
                                 isBeingDragged = isBeingDragged,
-                                modifier = Modifier.size(46.dp),
-                                onPositioned = { rect -> holdingBounds[slotIndex] = rect },
-                                onDragStart = { offset, piece ->
-                                    activeDragOrigin = SlotTarget.Holding(slotIndex)
-                                    activeDragPieceId = piece
-                                    dragOffsetByTouch = Offset.Zero
-                                    holdingBounds[slotIndex]?.let { b ->
-                                        dragGlobalPosition = b.topLeft + offset
-                                    }
-                                },
-                                onDrag = { dragAmount ->
-                                    dragOffsetByTouch += dragAmount
-                                    dragGlobalPosition += dragAmount
-                                    hoveredTarget = findHoveredTarget(dragGlobalPosition)
-                                },
-                                onDragEnd = {
-                                    activeDragOrigin?.let { origin ->
-                                        hoveredTarget?.let { target ->
-                                            handleDrop(origin, target)
-                                        }
-                                    }
-                                    activeDragOrigin = null
-                                    activeDragPieceId = null
-                                    hoveredTarget = null
-                                    selectedSlot = null
-                                },
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .onGloballyPositioned { layoutCoords ->
+                                        holdingSlotCoordinates[slotIndex] = layoutCoords
+                                    },
                                 onTap = {
                                     val currentSel = selectedSlot
                                     if (currentSel == null) {
@@ -568,6 +601,73 @@ fun ImageArrangementScreen(
                                         handleDrop(currentSel, SlotTarget.Holding(slotIndex))
                                         selectedSlot = null
                                     }
+                                },
+                                onDragStart = { piece ->
+                                    activeDragOrigin = SlotTarget.Holding(slotIndex)
+                                    activeDragPieceId = piece
+                                    val root = rootCoordinates
+                                    val slotCoords = holdingSlotCoordinates[slotIndex]
+                                    if (root != null && slotCoords != null && slotCoords.isAttached) {
+                                        dragOffsetInRoot = root.localPositionOf(slotCoords, Offset.Zero)
+                                    }
+                                },
+                                onDrag = { delta ->
+                                    dragOffsetInRoot += delta
+                                },
+                                onDragRelease = {
+                                    val root = rootCoordinates
+                                    val origin = activeDragOrigin
+                                    if (root != null && origin != null) {
+                                        val halfHoldingPx = with(density) { 23.dp.toPx() }
+                                        val tilePx = with(density) { tileSize.toPx() }
+                                        val releaseCenter = dragOffsetInRoot + Offset(halfHoldingPx, halfHoldingPx)
+                                        var target: SlotTarget? = null
+                                        var minDistance = Float.MAX_VALUE
+
+                                        // Check board slots
+                                        boardSlotCoordinates.forEach { (idx, coords) ->
+                                            if (coords.isAttached) {
+                                                val topL = root.localPositionOf(coords, Offset.Zero)
+                                                val rect = Rect(topL, coords.size.let { Offset(it.width.toFloat(), it.height.toFloat()) })
+                                                if (rect.contains(releaseCenter)) {
+                                                    target = SlotTarget.Board(idx)
+                                                    minDistance = 0f
+                                                } else if (minDistance > 0f) {
+                                                    val dist = hypot(releaseCenter.x - rect.center.x, releaseCenter.y - rect.center.y)
+                                                    if (dist < minDistance && dist < tilePx * 2.0f) {
+                                                        minDistance = dist
+                                                        target = SlotTarget.Board(idx)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Check holding slots
+                                        holdingSlotCoordinates.forEach { (idx, coords) ->
+                                            if (coords.isAttached) {
+                                                val topL = root.localPositionOf(coords, Offset.Zero)
+                                                val rect = Rect(topL, coords.size.let { Offset(it.width.toFloat(), it.height.toFloat()) })
+                                                if (rect.contains(releaseCenter)) {
+                                                    target = SlotTarget.Holding(idx)
+                                                    minDistance = 0f
+                                                } else if (minDistance > 0f) {
+                                                    val dist = hypot(releaseCenter.x - rect.center.x, releaseCenter.y - rect.center.y)
+                                                    if (dist < minDistance && dist < tilePx * 2.0f) {
+                                                        minDistance = dist
+                                                        target = SlotTarget.Holding(idx)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (target != null && target != origin) {
+                                            handleDrop(origin, target!!)
+                                        }
+                                    }
+
+                                    activeDragOrigin = null
+                                    activeDragPieceId = null
+                                    selectedSlot = null
                                 }
                             )
                         }
@@ -577,7 +677,7 @@ fun ImageArrangementScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Big always-visible Task Completed Button (Fixed-height 44dp)
+            // Task Completed Button
             Button(
                 onClick = {
                     if (!isButtonDisabled) {
@@ -607,20 +707,17 @@ fun ImageArrangementScreen(
             }
         }
 
-        // Floating Dragged Piece Preview (drawn above all content with high zIndex)
+        // Floating Dragged Piece Preview (cleanly resolved on release, never stuck)
         activeDragPieceId?.let { pieceId ->
             slices.getOrNull(pieceId)?.let { bmp ->
                 Box(
                     modifier = Modifier
                         .offset {
-                            IntOffset(
-                                (dragGlobalPosition.x - 55).roundToInt(),
-                                (dragGlobalPosition.y - 55).roundToInt()
-                            )
+                            IntOffset(dragOffsetInRoot.x.roundToInt(), dragOffsetInRoot.y.roundToInt())
                         }
-                        .size(90.dp)
+                        .size(tileSize)
                         .zIndex(100f)
-                        .scale(1.1f)
+                        .scale(1.08f)
                         .shadow(12.dp, RoundedCornerShape(10.dp))
                         .clip(RoundedCornerShape(10.dp))
                         .border(2.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
@@ -660,20 +757,26 @@ fun ImageArrangementScreen(
                         fullImage?.let { bmp ->
                             Image(
                                 bitmap = bmp,
-                                contentDescription = "Full Reference Picture",
+                                contentDescription = "Full reference artwork",
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(12.dp)),
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)),
                                 contentScale = ContentScale.Crop
                             )
                         }
                         Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "Tap anywhere outside to close",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Button(
+                            onClick = { showFullPreview = false },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Close Preview", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -682,49 +785,69 @@ fun ImageArrangementScreen(
 }
 
 @Composable
-fun BoardSlotCell(
+fun ImagePieceSlotCell(
     slotIndex: Int,
     pieceId: Int?,
     sliceBitmap: ImageBitmap?,
     isMatched: Boolean,
     isSelected: Boolean,
-    isHovered: Boolean,
     isBeingDragged: Boolean,
     modifier: Modifier = Modifier,
-    onPositioned: (Rect) -> Unit,
-    onDragStart: (Offset, Int) -> Unit,
+    onTap: () -> Unit,
+    onDragStart: (Int) -> Unit,
     onDrag: (Offset) -> Unit,
-    onDragEnd: () -> Unit,
-    onTap: () -> Unit
+    onDragRelease: () -> Unit
 ) {
     val borderColor = when {
-        isHovered -> MaterialTheme.colorScheme.primary
         isSelected -> MaterialTheme.colorScheme.primary
         isMatched -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-        else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+        else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
     }
 
-    val borderWidth = if (isHovered || isSelected) 2.5.dp else if (isMatched) 2.dp else 1.dp
-    val alpha = if (isBeingDragged) 0.3f else 1.0f
+    val borderWidth = if (isSelected) 2.5.dp else if (isMatched) 2.dp else 1.dp
+    val alpha = if (isBeingDragged) 0.25f else 1.0f
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
             .background(if (pieceId == null) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface)
             .border(borderWidth, borderColor, RoundedCornerShape(6.dp))
-            .clickable { onTap() }
             .pointerInput(pieceId) {
-                if (pieceId != null) {
-                    detectDragGestures(
-                        onDragStart = { offset -> onDragStart(offset, pieceId) },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            onDrag(dragAmount)
-                        },
-                        onDragEnd = onDragEnd,
-                        onDragCancel = onDragEnd
-                    )
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val pointerId = down.id
+                    var isDragging = false
+                    var totalDrag = Offset.Zero
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                            if (!change.pressed) {
+                                if (isDragging) {
+                                    onDragRelease()
+                                } else {
+                                    onTap()
+                                }
+                                break
+                            }
+                            val delta = change.positionChange()
+                            totalDrag += delta
+                            if (!isDragging && totalDrag.getDistance() > 8.dp.toPx()) {
+                                if (pieceId != null) {
+                                    isDragging = true
+                                    onDragStart(pieceId)
+                                }
+                            }
+                            if (isDragging) {
+                                change.consume()
+                                onDrag(delta)
+                            }
+                        }
+                    } finally {
+                        if (isDragging) {
+                            onDragRelease()
+                        }
+                    }
                 }
             }
             .testTag("board_slot_$slotIndex"),
@@ -741,7 +864,6 @@ fun BoardSlotCell(
             )
         }
 
-        // Solved check badge in corner using theme primary color
         if (isMatched && !isBeingDragged) {
             Box(
                 modifier = Modifier
@@ -778,43 +900,58 @@ fun HoldingSlotCell(
     pieceId: Int?,
     sliceBitmap: ImageBitmap?,
     isSelected: Boolean,
-    isHovered: Boolean,
     isBeingDragged: Boolean,
     modifier: Modifier = Modifier,
-    onPositioned: (Rect) -> Unit,
-    onDragStart: (Offset, Int) -> Unit,
+    onTap: () -> Unit,
+    onDragStart: (Int) -> Unit,
     onDrag: (Offset) -> Unit,
-    onDragEnd: () -> Unit,
-    onTap: () -> Unit
+    onDragRelease: () -> Unit
 ) {
-    val borderColor = when {
-        isHovered -> MaterialTheme.colorScheme.primary
-        isSelected -> MaterialTheme.colorScheme.primary
-        pieceId != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-    }
-
-    val borderWidth = if (isHovered || isSelected) 2.5.dp else 1.dp
-    val alpha = if (isBeingDragged) 0.3f else 1.0f
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+    val borderWidth = if (isSelected) 2.5.dp else 1.dp
+    val alpha = if (isBeingDragged) 0.25f else 1.0f
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
-            .background(if (pieceId == null) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface)
+            .background(if (pieceId != null) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             .border(borderWidth, borderColor, RoundedCornerShape(8.dp))
-            .clickable { onTap() }
             .pointerInput(pieceId) {
-                if (pieceId != null) {
-                    detectDragGestures(
-                        onDragStart = { offset -> onDragStart(offset, pieceId) },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            onDrag(dragAmount)
-                        },
-                        onDragEnd = onDragEnd,
-                        onDragCancel = onDragEnd
-                    )
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val pointerId = down.id
+                    var isDragging = false
+                    var totalDrag = Offset.Zero
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                            if (!change.pressed) {
+                                if (isDragging) {
+                                    onDragRelease()
+                                } else {
+                                    onTap()
+                                }
+                                break
+                            }
+                            val delta = change.positionChange()
+                            totalDrag += delta
+                            if (!isDragging && totalDrag.getDistance() > 8.dp.toPx()) {
+                                if (pieceId != null) {
+                                    isDragging = true
+                                    onDragStart(pieceId)
+                                }
+                            }
+                            if (isDragging) {
+                                change.consume()
+                                onDrag(delta)
+                            }
+                        }
+                    } finally {
+                        if (isDragging) {
+                            onDragRelease()
+                        }
+                    }
                 }
             }
             .testTag("holding_slot_$slotIndex"),
@@ -823,26 +960,19 @@ fun HoldingSlotCell(
         if (sliceBitmap != null && !isBeingDragged) {
             Image(
                 bitmap = sliceBitmap,
-                contentDescription = "Holding piece $pieceId",
+                contentDescription = "Holding piece $slotIndex",
                 modifier = Modifier
                     .fillMaxSize()
                     .scale(alpha),
                 contentScale = ContentScale.Crop
             )
         } else if (pieceId == null) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.PanTool,
-                    contentDescription = "Drop here",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = "Slot ${slotIndex + 1}",
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.PanTool,
+                contentDescription = "Empty holding slot",
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

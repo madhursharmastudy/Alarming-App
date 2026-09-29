@@ -189,15 +189,15 @@ fun TypingChallengeScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isExactMatch) Color(0xFF065F46) else MaterialTheme.colorScheme.surface
+                        containerColor = if (isExactMatch) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ),
                     shape = RoundedCornerShape(16.dp),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = androidx.compose.ui.graphics.SolidColor(
                             when {
-                                isExactMatch -> Color(0xFF10B981)
-                                hasMismatch -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                isExactMatch -> MaterialTheme.colorScheme.primary
+                                hasMismatch -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                             }
                         )
                     ),
@@ -213,7 +213,7 @@ fun TypingChallengeScreen(
                             text = "TARGET TEXT (TYPE EXACTLY AS SHOWN)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 1.sp
                         )
 
@@ -229,11 +229,11 @@ fun TypingChallengeScreen(
                                 val isCharMatched = userChar != null && userChar == char
                                 val isCharMismatch = userChar != null && userChar != char
                                 val charColor = when {
-                                    isCharMatched -> Color(0xFF10B981)
-                                    isCharMismatch -> Color(0xFFEF4444)
-                                    else -> MaterialTheme.colorScheme.onSurface
+                                    isCharMatched -> MaterialTheme.colorScheme.primary
+                                    isCharMismatch -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                                 }
-                                val charBg = if (isCharMismatch) Color(0xFFEF4444).copy(alpha = 0.2f) else Color.Transparent
+                                val charBg = if (isCharMismatch) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent
 
                                 Box(
                                     modifier = Modifier
