@@ -205,6 +205,7 @@ fun ChargerChallengeScreen(
         label = "chargerPulse"
     )
 
+    val isActionUnplug = requiredAction == ChargerRequiredAction.UNPLUG
     val themeColor = MaterialTheme.colorScheme.primary
 
     Column(

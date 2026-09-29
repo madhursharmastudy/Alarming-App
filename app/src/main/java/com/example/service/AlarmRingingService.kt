@@ -91,6 +91,10 @@ class AlarmRingingService : Service() {
             }
             context.startService(intent)
         }
+
+        fun stopAlarm(context: Context) {
+            stopRinging(context)
+        }
     }
 
     override fun onCreate() {

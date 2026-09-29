@@ -130,7 +130,7 @@ import com.example.challenge.ReactionGameChallengeActivity
 import com.example.challenge.ShakeChallengeActivity
 import com.example.challenge.StepsChallengeActivity
 import com.example.challenge.TypingChallengeActivity
-import com.example.challenge.WordScrambleChallengeActivity
+import com.example.challenge.CardArrangementChallengeActivity
 import com.example.data.AlarmEntity
 import com.example.data.AlarmRepository
 import com.example.data.AppDatabase
@@ -192,7 +192,7 @@ class MainActivity : ComponentActivity() {
             ChallengeType.TYPING -> TypingChallengeActivity::class.java
             ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
             ChallengeType.CHARGER -> ChargerChallengeActivity::class.java
-            ChallengeType.WORD_SCRAMBLE -> WordScrambleChallengeActivity::class.java
+            ChallengeType.CARD_ARRANGEMENT -> CardArrangementChallengeActivity::class.java
             ChallengeType.PATTERN_LOCK -> PatternLockChallengeActivity::class.java
             ChallengeType.ODD_ONE_OUT -> OddOneOutChallengeActivity::class.java
             ChallengeType.REACTION_GAME -> ReactionGameChallengeActivity::class.java
@@ -467,7 +467,7 @@ fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
         ChallengeType.TYPING -> Icons.Default.Keyboard to Color(0xFF10B981)
         ChallengeType.IMAGE_ARRANGEMENT -> Icons.Default.GridOn to Color(0xFFF59E0B)
         ChallengeType.CHARGER -> Icons.Default.Power to Color(0xFFEF4444)
-        ChallengeType.WORD_SCRAMBLE -> Icons.Default.TextFields to Color(0xFF38BDF8)
+        ChallengeType.CARD_ARRANGEMENT -> Icons.Default.GridOn to Color(0xFF38BDF8)
         ChallengeType.PATTERN_LOCK -> Icons.Default.Lock to Color(0xFFF97316)
         ChallengeType.ODD_ONE_OUT -> Icons.Default.Visibility to Color(0xFFEC4899)
         ChallengeType.REACTION_GAME -> Icons.Default.Speed to Color(0xFF22C55E)

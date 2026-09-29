@@ -15,28 +15,29 @@ class Converters {
 
     @TypeConverter
     fun toChallengeType(value: String): ChallengeType = try {
-        if (value.equals("PUZZLE", ignoreCase = true)) {
-            ChallengeType.IMAGE_ARRANGEMENT
-        } else {
-            ChallengeType.valueOf(value)
+        when {
+            value.equals("PUZZLE", ignoreCase = true) -> ChallengeType.IMAGE_ARRANGEMENT
+            value.equals("WORD_SCRAMBLE", ignoreCase = true) -> ChallengeType.CARD_ARRANGEMENT
+            else -> ChallengeType.valueOf(value)
         }
     } catch (e: Exception) {
         ChallengeType.MATH
     }
 }
 
-/**
- * Migration from Database Version 1 to 2:
- * Safely migrates existing alarms with legacy 'PUZZLE' challenge type to the new 'IMAGE_ARRANGEMENT' challenge type
- * ensuring zero data loss.
- */
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("UPDATE alarms SET challengeType = 'IMAGE_ARRANGEMENT' WHERE challengeType = 'PUZZLE'")
     }
 }
 
-@Database(entities = [AlarmEntity::class], version = 2, exportSchema = false)
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE alarms SET challengeType = 'CARD_ARRANGEMENT' WHERE challengeType = 'WORD_SCRAMBLE'")
+    }
+}
+
+@Database(entities = [AlarmEntity::class], version = 3, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
@@ -52,7 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "force_alarm_database"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance

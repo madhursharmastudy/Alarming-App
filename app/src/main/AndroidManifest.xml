@@ -95,7 +95,7 @@
             android:theme="@style/Theme.MyApplication" />
 
         <activity
-            android:name=".challenge.WordScrambleChallengeActivity"
+            android:name=".challenge.CardArrangementChallengeActivity"
             android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
