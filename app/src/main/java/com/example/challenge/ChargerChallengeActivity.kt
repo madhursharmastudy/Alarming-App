@@ -205,8 +205,7 @@ fun ChargerChallengeScreen(
         label = "chargerPulse"
     )
 
-    val isActionUnplug = requiredAction == ChargerRequiredAction.UNPLUG
-    val themeColor = if (isActionUnplug) Color(0xFFEF4444) else Color(0xFF10B981)
+    val themeColor = MaterialTheme.colorScheme.primary
 
     Column(
         modifier = modifier
@@ -226,7 +225,7 @@ fun ChargerChallengeScreen(
             Icon(
                 imageVector = if (isCharging) Icons.Default.BatteryChargingFull else Icons.Default.BatteryAlert,
                 contentDescription = null,
-                tint = if (isCharging) Color(0xFF10B981) else Color(0xFFF59E0B),
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -310,7 +309,7 @@ fun ChargerChallengeScreen(
                             text = if (isActionUnplug) "UNPLUG THE CHARGER" else "PLUG IN THE CHARGER",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
 

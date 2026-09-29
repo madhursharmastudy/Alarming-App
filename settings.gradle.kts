@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ForceAlarm"
+rootProject.name = "Aurum Alarm"
 include(":app")

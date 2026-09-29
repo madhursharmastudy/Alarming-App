@@ -1,6 +1,6 @@
 {
-  "name": "ForceAlarm",
-  "description": "Uncompromising wake-up alarm with progressive offline challenges: Charger, Word Scramble, Pattern Lock, Odd One Out, Reaction Game, Typing, Image Arrangement, and motion.",
+  "name": "Aurum Alarm",
+  "description": "Aurum Alarm - Uncompromising wake-up alarm with 3-stage progressive challenges: Image Arrangement, Typing, Word Scramble, Odd One Out, Reaction Target, Charger, Pattern Lock, Math, and motion.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

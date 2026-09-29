@@ -241,7 +241,7 @@ class AlarmRingingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = if (isSilenced) "Challenge in Progress..." else "ForceAlarm Ringing!"
+        val title = if (isSilenced) "Challenge in Progress..." else "Aurum Alarm Ringing!"
         val contentText = if (isSilenced) "Complete all 3 stages to stop the alarm" else "$currentAlarmLabel - Tap to start challenge"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -262,7 +262,7 @@ class AlarmRingingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "ForceAlarm Ringing Channel",
+                "Aurum Alarm Ringing Channel",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Critical full-screen alarm ringing notifications"

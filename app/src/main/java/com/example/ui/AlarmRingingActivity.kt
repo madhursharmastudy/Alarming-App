@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -14,7 +13,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -34,16 +32,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,17 +51,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
 import com.example.challenge.AudioChallengeActivity
+import com.example.challenge.BaseChallengeActivity
 import com.example.challenge.CameraChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
 import com.example.challenge.ImageArrangementChallengeActivity
@@ -71,6 +66,7 @@ import com.example.challenge.OddOneOutChallengeActivity
 import com.example.challenge.PatternLockChallengeActivity
 import com.example.challenge.QrChallengeActivity
 import com.example.challenge.ReactionGameChallengeActivity
+import com.example.challenge.SHOW_TEST_STOP_BUTTON
 import com.example.challenge.ShakeChallengeActivity
 import com.example.challenge.StepsChallengeActivity
 import com.example.challenge.TypingChallengeActivity
@@ -86,7 +82,7 @@ import java.util.Locale
 class AlarmRingingActivity : ComponentActivity() {
 
     private var alarmId: Int = -1
-    private var alarmLabel: String = "Wake Up!"
+    private var alarmLabel: String = "Aurum Alarm"
     private var challengeTypeStr: String = ChallengeType.MATH.name
     private var refLabels: String? = null
 
@@ -106,17 +102,13 @@ class AlarmRingingActivity : ComponentActivity() {
         )
 
         alarmId = intent.getIntExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
-        alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Wake Up!"
+        alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Aurum Alarm"
         challengeTypeStr = intent.getStringExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE) ?: ChallengeType.MATH.name
         refLabels = intent.getStringExtra(AlarmReceiver.EXTRA_REF_LABELS)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                Toast.makeText(
-                    this@AlarmRingingActivity,
-                    "Alarm is locked! You must start and complete the 3-stage challenge.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                // Locked until completed
             }
         })
 
@@ -125,17 +117,20 @@ class AlarmRingingActivity : ComponentActivity() {
                 AlarmRingingScreen(
                     alarmLabel = alarmLabel,
                     challengeType = try { ChallengeType.valueOf(challengeTypeStr) } catch (e: Exception) { ChallengeType.MATH },
-                    onStartChallenge = { startChallengeFlow() }
+                    onStartChallenge = { startChallengeFlow() },
+                    onTestStopAlarm = {
+                        // TEMPORARY TEST CODE - REMOVE LATER
+                        AlarmRingingService.stopAlarm(this@AlarmRingingActivity)
+                        finish()
+                    }
                 )
             }
         }
     }
 
     private fun startChallengeFlow() {
-        // 1. Silence alarm sound in AlarmRingingService (keeps service alive to track state!)
         AlarmRingingService.silenceForChallenge(this)
 
-        // 2. Launch the corresponding challenge activity
         val type = try { ChallengeType.valueOf(challengeTypeStr) } catch (e: Exception) { ChallengeType.MATH }
         val targetClass = when (type) {
             ChallengeType.AUDIO -> AudioChallengeActivity::class.java
@@ -169,12 +164,13 @@ class AlarmRingingActivity : ComponentActivity() {
 fun AlarmRingingScreen(
     alarmLabel: String,
     challengeType: ChallengeType,
-    onStartChallenge: () -> Unit
+    onStartChallenge: () -> Unit,
+    onTestStopAlarm: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
+        initialValue = 0.94f,
+        targetValue = 1.06f,
         animationSpec = infiniteRepeatable(
             animation = tween(600),
             repeatMode = RepeatMode.Reverse
@@ -189,39 +185,66 @@ fun AlarmRingingScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF0F172A) // Rich deep midnight background
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Lock Info
+            // Top Bar: Lock Pill and Temporary Test Stop Button
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFFEF4444).copy(alpha = 0.2f))
-                    .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    .fillMaxWidth()
+                    .height(36.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = "Locked",
-                    tint = Color(0xFFEF4444),
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (challengeType == ChallengeType.CHARGER) "LOCKED: ACTION REQUIRED" else "LOCKED: 3-STAGE DISMISSAL",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 11.sp,
-                    color = Color(0xFFFCA5A5)
-                )
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Locked",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (challengeType == ChallengeType.CHARGER) "LOCKED: ACTION REQUIRED" else "LOCKED: 3-STAGE DISMISSAL",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // TEMPORARY TEST CODE - REMOVE LATER
+                if (SHOW_TEST_STOP_BUTTON) {
+                    OutlinedButton(
+                        onClick = onTestStopAlarm,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .height(30.dp)
+                            .testTag("test_stop_alarm_button")
+                    ) {
+                        Icon(Icons.Default.StopCircle, contentDescription = null, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "TEST: Stop Alarm",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             // Central Branding & Alarm Clock Visual (weight 1f, strictly non-scrollable)
@@ -232,33 +255,30 @@ fun AlarmRingingScreen(
                 contentAlignment = Alignment.Center
             ) {
                 val totalH = maxHeight
-                val logoSize = minOf(totalH * 0.28f, 130.dp).coerceAtLeast(64.dp)
-                val clockSize = if (totalH < 320.dp) 38.sp else 50.sp
-                val amPmSize = if (totalH < 320.dp) 18.sp else 22.sp
+                val iconBoxSize = minOf(totalH * 0.28f, 110.dp).coerceAtLeast(60.dp)
+                val clockSize = if (totalH < 300.dp) 38.sp else 48.sp
+                val amPmSize = if (totalH < 300.dp) 16.sp else 20.sp
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    // Simple vector alarm-bell symbol drawn in the theme's main color
                     Box(
                         modifier = Modifier
-                            .size(logoSize)
+                            .size(iconBoxSize)
                             .scale(pulseScale)
                             .clip(CircleShape)
-                            .background(
-                                Brush.radialGradient(
-                                    listOf(Color(0xFFEF4444), Color(0xFF7F1D1D))
-                                )
-                            )
-                            .border(3.dp, Color(0xFFFCA5A5), CircleShape),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                            .border(2.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.force_alarm_logo),
-                            contentDescription = "ForceAlarm Logo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = "Aurum Alarm Bell",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(iconBoxSize * 0.52f)
                         )
                     }
 
@@ -269,22 +289,22 @@ fun AlarmRingingScreen(
                             text = timeFormat.format(now),
                             fontSize = clockSize,
                             fontWeight = FontWeight.Black,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = amPmFormat.format(now),
                             fontSize = amPmSize,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFFCA5A5),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
                     }
 
                     Text(
                         text = dateFormat.format(now),
-                        fontSize = 14.sp,
-                        color = Color(0xFF94A3B8),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
 
@@ -292,9 +312,9 @@ fun AlarmRingingScreen(
 
                     Text(
                         text = alarmLabel,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF38BDF8),
+                        color = MaterialTheme.colorScheme.primary,
                         textAlign = TextAlign.Center,
                         maxLines = 1
                     )
@@ -308,48 +328,54 @@ fun AlarmRingingScreen(
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                     shape = RoundedCornerShape(16.dp),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(Color(0xFF3B82F6), Color(0xFF8B5CF6))))
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                    )
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = "REQUIRED CHALLENGE",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF94A3B8)
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            letterSpacing = 1.sp
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = challengeType.displayName,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.primary,
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (challengeType == ChallengeType.CHARGER) "Physical Sensor Action • Auto-Silences on Start" else "3-Stage Progressive • Auto-Silences on Start",
                             fontSize = 11.sp,
-                            color = Color(0xFF38BDF8),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
                     onClick = onStartChallenge,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .height(52.dp)
                         .testTag("start_challenge_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                    shape = RoundedCornerShape(16.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -357,15 +383,13 @@ fun AlarmRingingScreen(
                     ) {
                         Text(
                             text = "Start Challenge (Silence Alarm)",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
                             imageVector = Icons.Default.ArrowForward,
                             contentDescription = "Start",
-                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }

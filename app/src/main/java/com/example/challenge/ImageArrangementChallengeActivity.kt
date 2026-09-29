@@ -1,10 +1,6 @@
 package com.example.challenge
 
 import android.graphics.Bitmap
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,20 +24,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.GridOn
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PanTool
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +56,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -70,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.example.data.ChallengeType
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.roundToInt
@@ -77,35 +73,29 @@ import kotlin.random.Random
 
 /**
  * 3-Stage Progressive Image Arrangement Challenge.
- * Slices a random built-in drawable artwork into:
+ * Completely fits on ONE screen without scrolling.
+ * Slices an artwork into:
  *  - Stage 1 (Low): 6 pieces (2 cols x 3 rows) with 1 Holding slot
  *  - Stage 2 (Moderate): 12 pieces (3 cols x 4 rows) with 2 Holding slots
  *  - Stage 3 (Difficult): 20 pieces (4 cols x 5 rows) with 2 Holding slots
- *
- * Supports drag-and-drop piece swapping and temporary storage in the Holding Area.
  */
 class ImageArrangementChallengeActivity : BaseChallengeActivity() {
 
-    // Board dimensions
     private val colsState = MutableStateFlow(2)
     val cols = colsState.asStateFlow()
 
     private val rowsState = MutableStateFlow(3)
     val rows = rowsState.asStateFlow()
 
-    // Sliced pieces bitmaps indexed by piece ID (0..totalPieces-1)
     private val slicesState = MutableStateFlow<List<ImageBitmap>>(emptyList())
     val slices = slicesState.asStateFlow()
 
-    // Current board slots: contains piece ID (0..totalPieces-1) or null if moved to holding
     private val boardSlotsState = MutableStateFlow<List<Int?>>(emptyList())
     val boardSlots = boardSlotsState.asStateFlow()
 
-    // Holding area slots: contains piece ID or null
     private val holdingSlotsState = MutableStateFlow<List<Int?>>(emptyList())
     val holdingSlots = holdingSlotsState.asStateFlow()
 
-    // Full target image preview
     private val fullImageState = MutableStateFlow<ImageBitmap?>(null)
     val fullImage = fullImageState.asStateFlow()
 
@@ -143,23 +133,19 @@ class ImageArrangementChallengeActivity : BaseChallengeActivity() {
         rowsState.value = numRows
         setFeedbackMessage(null)
 
-        // Randomly pick an image from the built-in list
         val item = ImageArrangementData.pickRandomImage(previousResId)
         previousResId = item.resId
         imageTitleState.value = item.title
 
-        // Render drawable to bitmap sized exactly for grid tiles (unit size 180px per tile)
         val unitTileSize = 180
         val targetWidth = numCols * unitTileSize
         val targetHeight = numRows * unitTileSize
         val fullBitmap = ImageArrangementData.renderDrawableToBitmap(this, item.resId, targetWidth, targetHeight)
         fullImageState.value = fullBitmap.asImageBitmap()
 
-        // Slice into pieces
         val pieceBitmaps = ImageArrangementData.sliceBitmap(fullBitmap, numCols, numRows)
         slicesState.value = pieceBitmaps.map { it.asImageBitmap() }
 
-        // Shuffle board pieces (guarantee not already solved)
         val total = numCols * numRows
         val shuffled = (0 until total).toMutableList()
         do {
@@ -184,7 +170,7 @@ class ImageArrangementChallengeActivity : BaseChallengeActivity() {
         list[slotA] = list[slotB]
         list[slotB] = temp
         boardSlotsState.value = list
-        checkCompletion()
+        checkAutoAccept()
     }
 
     fun swapBoardWithHolding(boardSlot: Int, holdingSlot: Int) {
@@ -195,7 +181,7 @@ class ImageArrangementChallengeActivity : BaseChallengeActivity() {
         hList[holdingSlot] = temp
         boardSlotsState.value = bList
         holdingSlotsState.value = hList
-        checkCompletion()
+        checkAutoAccept()
     }
 
     fun swapHoldingWithHolding(slotA: Int, slotB: Int) {
@@ -205,17 +191,36 @@ class ImageArrangementChallengeActivity : BaseChallengeActivity() {
         list[slotA] = list[slotB]
         list[slotB] = temp
         holdingSlotsState.value = list
-        checkCompletion()
+        checkAutoAccept()
     }
 
-    private fun checkCompletion() {
+    private fun checkAutoAccept() {
         val b = boardSlotsState.value
         val h = holdingSlotsState.value
-        // Solved if every holding slot is empty and board pieces match their slot indices
         val holdingEmpty = h.all { it == null }
         if (holdingEmpty && isBoardSolved(b)) {
             setFeedbackMessage("Artwork completed! Stage Passed!", isSuccess = true)
             completeCurrentStage()
+        }
+    }
+
+    fun onTaskCompletedClicked() {
+        val b = boardSlotsState.value
+        val h = holdingSlotsState.value
+        val holdingHasPieces = h.any { it != null }
+        val matched = b.filterIndexed { index, pieceId -> pieceId == index }.size
+        val total = colsState.value * rowsState.value
+
+        if (!holdingHasPieces && isBoardSolved(b)) {
+            setFeedbackMessage("Artwork completed! Stage Passed!", isSuccess = true)
+            completeCurrentStage()
+        } else {
+            val message = if (holdingHasPieces) {
+                "Image is not correct yet ($matched of $total pieces placed). Place all holding pieces on the board."
+            } else {
+                "Image is not correct yet ($matched of $total pieces placed correctly)."
+            }
+            setFeedbackMessage(message, isError = true)
         }
     }
 
@@ -242,12 +247,12 @@ class ImageArrangementChallengeActivity : BaseChallengeActivity() {
             onSwapBoardBoard = { a, b -> swapBoardWithBoard(a, b) },
             onSwapBoardHolding = { b, h -> swapBoardWithHolding(b, h) },
             onSwapHoldingHolding = { a, b -> swapHoldingWithHolding(a, b) },
+            onTaskCompleted = { onTaskCompletedClicked() },
             modifier = modifier
         )
     }
 }
 
-// Sealed class to identify slot targets for drag and drop
 sealed class SlotTarget {
     data class Board(val index: Int) : SlotTarget()
     data class Holding(val index: Int) : SlotTarget()
@@ -266,26 +271,32 @@ fun ImageArrangementScreen(
     onSwapBoardBoard: (Int, Int) -> Unit,
     onSwapBoardHolding: (Int, Int) -> Unit,
     onSwapHoldingHolding: (Int, Int) -> Unit,
+    onTaskCompleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Coordinate maps for hit detection
     val boardBounds = remember { mutableStateMapOf<Int, Rect>() }
     val holdingBounds = remember { mutableStateMapOf<Int, Rect>() }
 
-    // Drag-and-drop state
     var activeDragOrigin by remember { mutableStateOf<SlotTarget?>(null) }
     var activeDragPieceId by remember { mutableStateOf<Int?>(null) }
     var dragGlobalPosition by remember { mutableStateOf(Offset.Zero) }
     var dragOffsetByTouch by remember { mutableStateOf(Offset.Zero) }
     var hoveredTarget by remember { mutableStateOf<SlotTarget?>(null) }
 
-    // Tap-to-swap selection fallback (sleep-inertia friendly)
     var selectedSlot by remember { mutableStateOf<SlotTarget?>(null) }
-
-    // Reference image dialog
     var showFullPreview by remember { mutableStateOf(false) }
 
-    // Count matched pieces
+    var buttonDisabledUntil by remember { mutableLongStateOf(0L) }
+    var isButtonDisabled by remember { mutableStateOf(false) }
+
+    LaunchedEffect(buttonDisabledUntil) {
+        if (buttonDisabledUntil > System.currentTimeMillis()) {
+            isButtonDisabled = true
+            delay(buttonDisabledUntil - System.currentTimeMillis())
+            isButtonDisabled = false
+        }
+    }
+
     val matchedCount = boardSlots.filterIndexed { index, pieceId -> pieceId == index }.size
     val totalPieces = cols * rows
 
@@ -312,13 +323,17 @@ fun ImageArrangementScreen(
         val totalWidth = maxWidth
         val totalHeight = maxHeight
 
-        // Available vertical space for the board: totalHeight minus top bar (36dp) minus holding bar (72dp) minus padding (12dp)
-        val availableBoardW = totalWidth - 16.dp
-        val availableBoardH = (totalHeight - 120.dp).coerceAtLeast(100.dp)
+        // Fixed reserved heights:
+        // Top reference & stats row: 50.dp
+        // Holding area: 56.dp
+        // Task Completed button row: 46.dp
+        // Total fixed overhead: 50 + 56 + 46 + 16 (spacers/padding) = 168.dp
+        val availableBoardW = (totalWidth - 16.dp).coerceAtLeast(100.dp)
+        val availableBoardH = (totalHeight - 168.dp).coerceAtLeast(100.dp)
 
         val tileW = availableBoardW / cols
         val tileH = availableBoardH / rows
-        val tileSize = minOf(tileW, tileH).coerceIn(34.dp, 84.dp)
+        val tileSize = minOf(tileW, tileH).coerceIn(30.dp, 80.dp)
 
         val actualBoardW = tileSize * cols
         val actualBoardH = tileSize * rows
@@ -326,22 +341,22 @@ fun ImageArrangementScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 2.dp),
+                .padding(horizontal = 4.dp, vertical = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header stats & Target reference thumbnail bar (fixed height 36dp)
+            // Header stats & large visible reference image (at least 25% screen width)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(52.dp)
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Stage $currentStage: ${totalPieces} Pieces (${cols}x${rows})",
+                        text = "Stage $currentStage: $totalPieces Pieces (${cols}x$rows)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary,
@@ -351,17 +366,18 @@ fun ImageArrangementScreen(
                         text = "Placed Correctly: $matchedCount / $totalPieces",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (matchedCount == totalPieces) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (matchedCount == totalPieces) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1
                     )
                 }
 
-                // Reference Thumbnail Preview (Tap to Enlarge)
+                // Reference image: >= 25% of screen width, always visible, tap to enlarge
                 fullImage?.let { bmp ->
                     Card(
                         onClick = { showFullPreview = true },
                         modifier = Modifier
-                            .size(34.dp)
+                            .width((totalWidth * 0.28f).coerceIn(70.dp, 110.dp))
+                            .height(48.dp)
                             .testTag("preview_target_thumbnail"),
                         shape = RoundedCornerShape(8.dp),
                         border = CardDefaults.outlinedCardBorder().copy(
@@ -371,7 +387,7 @@ fun ImageArrangementScreen(
                     ) {
                         Image(
                             bitmap = bmp,
-                            contentDescription = "Target Picture",
+                            contentDescription = "Target Picture Reference",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
@@ -379,7 +395,7 @@ fun ImageArrangementScreen(
                 }
             }
 
-            // Main Puzzle Board Grid (weight 1f, strictly non-scrollable, centered)
+            // Main Puzzle Board Grid (weight 1f, strictly non-scrollable, calculated from BoxWithConstraints)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -389,9 +405,9 @@ fun ImageArrangementScreen(
                 Card(
                     modifier = Modifier.size(actualBoardW + 8.dp, actualBoardH + 8.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                     border = CardDefaults.outlinedCardBorder().copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant)
+                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                     )
                 ) {
                     Column(
@@ -466,44 +482,44 @@ fun ImageArrangementScreen(
                 }
             }
 
-            // Dedicated Holding Area Box (fixed height ~68dp)
+            // Dedicated Holding Area Box (fixed height ~54dp)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(68.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .height(54.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                 ),
                 border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                 )
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "📦 HOLDING AREA",
-                            fontSize = 11.sp,
+                            text = "HOLDING AREA",
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1
                         )
                         Text(
                             text = "Temporary park slots",
-                            fontSize = 10.sp,
+                            fontSize = 9.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         holdingSlots.forEachIndexed { slotIndex, pieceId ->
@@ -518,7 +534,7 @@ fun ImageArrangementScreen(
                                 isSelected = isSelected,
                                 isHovered = isHovered,
                                 isBeingDragged = isBeingDragged,
-                                modifier = Modifier.size(54.dp),
+                                modifier = Modifier.size(46.dp),
                                 onPositioned = { rect -> holdingBounds[slotIndex] = rect },
                                 onDragStart = { offset, piece ->
                                     activeDragOrigin = SlotTarget.Holding(slotIndex)
@@ -558,6 +574,37 @@ fun ImageArrangementScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Big always-visible Task Completed Button (Fixed-height 44dp)
+            Button(
+                onClick = {
+                    if (!isButtonDisabled) {
+                        buttonDisabledUntil = System.currentTimeMillis() + 1000L
+                        onTaskCompleted()
+                    }
+                },
+                enabled = !isButtonDisabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .testTag("task_completed_button"),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Icon(Icons.Default.TaskAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "TASK COMPLETED",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
+                )
+            }
         }
 
         // Floating Dragged Piece Preview (drawn above all content with high zIndex)
@@ -567,17 +614,17 @@ fun ImageArrangementScreen(
                     modifier = Modifier
                         .offset {
                             IntOffset(
-                                (dragGlobalPosition.x - 60).roundToInt(),
-                                (dragGlobalPosition.y - 60).roundToInt()
+                                (dragGlobalPosition.x - 55).roundToInt(),
+                                (dragGlobalPosition.y - 55).roundToInt()
                             )
                         }
-                        .size(110.dp)
+                        .size(90.dp)
                         .zIndex(100f)
-                        .scale(1.12f)
-                        .shadow(16.dp, RoundedCornerShape(12.dp))
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(3.dp, Color(0xFFFBBF24), RoundedCornerShape(12.dp))
-                        .background(Color.Black)
+                        .scale(1.1f)
+                        .shadow(12.dp, RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(10.dp))
+                        .border(2.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surface)
                 ) {
                     Image(
                         bitmap = bmp,
@@ -651,10 +698,10 @@ fun BoardSlotCell(
     onTap: () -> Unit
 ) {
     val borderColor = when {
-        isHovered -> Color(0xFFF59E0B) // Golden drop target highlight
+        isHovered -> MaterialTheme.colorScheme.primary
         isSelected -> MaterialTheme.colorScheme.primary
-        isMatched -> Color(0xFF10B981) // Crisp green solved indicator
-        else -> Color.White.copy(alpha = 0.25f)
+        isMatched -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+        else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
     }
 
     val borderWidth = if (isHovered || isSelected) 2.5.dp else if (isMatched) 2.dp else 1.dp
@@ -664,7 +711,7 @@ fun BoardSlotCell(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
             .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
-            .background(if (pieceId == null) Color(0xFF1E293B) else Color.DarkGray)
+            .background(if (pieceId == null) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface)
             .border(borderWidth, borderColor, RoundedCornerShape(6.dp))
             .clickable { onTap() }
             .pointerInput(pieceId) {
@@ -694,33 +741,32 @@ fun BoardSlotCell(
             )
         }
 
-        // Solved check badge in corner
+        // Solved check badge in corner using theme primary color
         if (isMatched && !isBeingDragged) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(3.dp)
-                    .size(16.dp)
+                    .padding(2.dp)
+                    .size(15.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF10B981)),
+                    .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Matched",
-                    tint = Color.White,
-                    modifier = Modifier.size(11.dp)
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(10.dp)
                 )
             }
         }
 
-        // Empty slot placeholder indicator
         if (pieceId == null) {
             Text(
                 text = "${slotIndex + 1}",
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.3f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
             )
         }
     }
@@ -742,21 +788,21 @@ fun HoldingSlotCell(
     onTap: () -> Unit
 ) {
     val borderColor = when {
-        isHovered -> Color(0xFFF59E0B)
+        isHovered -> MaterialTheme.colorScheme.primary
         isSelected -> MaterialTheme.colorScheme.primary
         pieceId != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     }
 
-    val borderWidth = if (isHovered || isSelected) 3.dp else 1.5.dp
+    val borderWidth = if (isHovered || isSelected) 2.5.dp else 1.dp
     val alpha = if (isBeingDragged) 0.3f else 1.0f
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
-            .background(if (pieceId == null) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color.DarkGray)
-            .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
+            .background(if (pieceId == null) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface)
+            .border(borderWidth, borderColor, RoundedCornerShape(8.dp))
             .clickable { onTap() }
             .pointerInput(pieceId) {
                 if (pieceId != null) {
@@ -789,13 +835,12 @@ fun HoldingSlotCell(
                     imageVector = Icons.Default.PanTool,
                     contentDescription = "Drop here",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Slot ${slotIndex + 1}",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }

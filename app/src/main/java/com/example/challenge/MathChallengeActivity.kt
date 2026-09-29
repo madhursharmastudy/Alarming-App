@@ -274,12 +274,10 @@ fun MathChallengeScreen(
                         val isDel = key == "DEL"
                         val btnColor = when {
                             isOk -> MaterialTheme.colorScheme.primary
-                            isDel -> MaterialTheme.colorScheme.errorContainer
                             else -> MaterialTheme.colorScheme.surfaceVariant
                         }
                         val txtColor = when {
                             isOk -> MaterialTheme.colorScheme.onPrimary
-                            isDel -> MaterialTheme.colorScheme.onErrorContainer
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
 

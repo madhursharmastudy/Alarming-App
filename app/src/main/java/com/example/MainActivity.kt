@@ -389,7 +389,7 @@ fun HeaderBrandingSection() {
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.force_alarm_logo),
-                    contentDescription = "ForceAlarm Icon",
+                    contentDescription = "Aurum Alarm Icon",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -400,7 +400,7 @@ fun HeaderBrandingSection() {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "ForceAlarm",
+                        text = "Aurum Alarm",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary
@@ -672,7 +672,7 @@ fun AddEditAlarmSheet(
                 .navigationBarsPadding()
         ) {
             Text(
-                text = if (initialAlarm == null) "Set New ForceAlarm" else "Edit Alarm",
+                text = if (initialAlarm == null) "Set New Aurum Alarm" else "Edit Alarm",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface
@@ -838,7 +838,7 @@ fun AddEditAlarmSheet(
                         id = initialAlarm?.id ?: 0,
                         hour = selectedHour,
                         minute = selectedMinute,
-                        label = label.ifBlank { "ForceAlarm" },
+                        label = label.ifBlank { "Aurum Alarm" },
                         isEnabled = true,
                         daysOfWeek = selectedDays,
                         challengeType = selectedChallengeType,

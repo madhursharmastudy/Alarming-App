@@ -382,8 +382,9 @@ fun PatternGridCanvas(
     onTouchMove: (Offset, Int?) -> Unit,
     onTouchEnd: () -> Unit
 ) {
-    val strokeColor = if (isPreview) Color(0xFFF59E0B) else Color(0xFF3B82F6)
-    val dotActiveColor = if (isPreview) Color(0xFFF59E0B) else Color(0xFF38BDF8)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val strokeColor = primaryColor
+    val dotActiveColor = primaryColor
     val dotInactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
 
     Canvas(
