@@ -60,8 +60,57 @@ object AlarmScheduler {
         }
     }
 
+    private const val BACKUP_REQUEST_OFFSET = 20000
+    private const val BACKUP_DELAY_MS = 3 * 60 * 1000L
+
+    /** Schedules (or pushes forward) a backup ring a few minutes from now. */
+    fun scheduleBackup(
+        context: Context,
+        alarmId: Int,
+        label: String,
+        challengeType: String,
+        refLabels: String?
+    ) {
+        if (alarmId <= 0) return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, label)
+            putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, challengeType)
+            putExtra(AlarmReceiver.EXTRA_REF_LABELS, refLabels)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            alarmId + BACKUP_REQUEST_OFFSET,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val triggerAt = System.currentTimeMillis() + BACKUP_DELAY_MS
+        try {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        } catch (e: SecurityException) {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        }
+    }
+
+    fun cancelBackup(context: Context, alarmId: Int) {
+        if (alarmId <= 0) return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            alarmId + BACKUP_REQUEST_OFFSET,
+            Intent(context, AlarmReceiver::class.java),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            alarmManager.cancel(pendingIntent)
+            pendingIntent.cancel()
+        }
+    }
+
     fun cancelAlarm(context: Context, alarmId: Int) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        cancelBackup(context, alarmId)
 
         val intent = Intent(context, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(

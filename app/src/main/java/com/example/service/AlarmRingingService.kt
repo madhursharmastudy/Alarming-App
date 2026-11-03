@@ -35,6 +35,7 @@ class AlarmRingingService : Service() {
     private val maxVolume = 1.0f
     private val handler = Handler(Looper.getMainLooper())
     private var volumeEscalationRunnable: Runnable? = null
+    private var backupRunnable: Runnable? = null
 
     companion object {
         const val CHANNEL_ID = "aurum_alarm_ringing_channel"
@@ -74,14 +75,42 @@ class AlarmRingingService : Service() {
         var currentRefLabels: String? = null
             private set
 
+        // Backup alarm: if the app/service is killed while the alarm is silenced for a
+        // challenge, this backup fires again so the user cannot escape by killing the app.
+        private const val BACKUP_HEARTBEAT_MS = 60_000L
+
+        // True after a timeout/abandon penalty: alarm is loud again and cannot be silenced
+        // for free (e.g. by reopening a challenge screen) until the one allowed re-silence is used.
+        @Volatile
+        var penaltyActive = false
+            private set
+
+        @Volatile
+        private var reSilenceUsed = false
+
         fun silenceForChallenge(context: Context) {
+            // Do not allow free silencing while a penalty is active
+            if (penaltyActive) return
             val intent = Intent(context, AlarmRingingService::class.java).apply {
                 action = ACTION_SILENCE_FOR_CHALLENGE
             }
             context.startService(intent)
         }
 
+        /** The user may re-silence a penalised alarm only once per ringing session. */
+        fun reSilenceOnce(context: Context): Boolean {
+            if (reSilenceUsed) return false
+            reSilenceUsed = true
+            penaltyActive = false
+            val intent = Intent(context, AlarmRingingService::class.java).apply {
+                action = ACTION_SILENCE_FOR_CHALLENGE
+            }
+            context.startService(intent)
+            return true
+        }
+
         fun resumeAlarm(context: Context) {
+            penaltyActive = true
             val intent = Intent(context, AlarmRingingService::class.java).apply {
                 action = ACTION_RESUME_ALARM
             }
@@ -132,6 +161,7 @@ class AlarmRingingService : Service() {
                         val alarm = db.alarmDao().getAlarmById(alarmId)
                         if (alarm == null || !alarm.isEnabled) {
                             // Alarm was deleted or disabled, do not ring!
+                            AlarmScheduler.cancelBackup(applicationContext, alarmId)
                             stopSelf()
                             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                             nm?.cancel(NOTIFICATION_ID)
@@ -142,6 +172,8 @@ class AlarmRingingService : Service() {
 
                 isServiceRunning = true
                 isSilenced = false
+                penaltyActive = false
+                reSilenceUsed = false
                 currentAlarmId = alarmId
                 currentAlarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "Aurum Alarm"
                 currentChallengeType = intent.getStringExtra(EXTRA_CHALLENGE_TYPE) ?: ChallengeType.MATH.name
@@ -149,6 +181,7 @@ class AlarmRingingService : Service() {
 
                 startForeground(NOTIFICATION_ID, buildNotification(isSilenced = false))
                 startAlarmMediaAndVibration(escalating = true)
+                startBackupHeartbeat()
             }
             ACTION_SILENCE_FOR_CHALLENGE -> {
                 isSilenced = true
@@ -163,8 +196,24 @@ class AlarmRingingService : Service() {
                 startAlarmMediaAndVibration(escalating = false)
             }
             ACTION_STOP_RINGING -> {
+                val finishedAlarmId = currentAlarmId
                 isServiceRunning = false
                 isSilenced = false
+                penaltyActive = false
+                reSilenceUsed = false
+                stopBackupHeartbeat()
+                if (finishedAlarmId > 0) {
+                    AlarmScheduler.cancelBackup(applicationContext, finishedAlarmId)
+                    // One-time alarms are switched off only after the user has really finished
+                    // (not at ring time), so the ringing check and the backup alarm still work.
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val dao = AppDatabase.getDatabase(applicationContext).alarmDao()
+                        val alarm = dao.getAlarmById(finishedAlarmId)
+                        if (alarm != null && alarm.daysOfWeek == 0 && alarm.isEnabled) {
+                            dao.updateAlarm(alarm.copy(isEnabled = false))
+                        }
+                    }
+                }
                 stopAlarmMediaAndVibration()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -181,8 +230,47 @@ class AlarmRingingService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun startBackupHeartbeat() {
+        stopBackupHeartbeat()
+        if (currentAlarmId <= 0) return
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!isServiceRunning) return
+                AlarmScheduler.scheduleBackup(
+                    applicationContext,
+                    currentAlarmId,
+                    currentAlarmLabel,
+                    currentChallengeType,
+                    currentRefLabels
+                )
+                handler.postDelayed(this, BACKUP_HEARTBEAT_MS)
+            }
+        }
+        backupRunnable = runnable
+        runnable.run()
+    }
+
+    private fun stopBackupHeartbeat() {
+        backupRunnable?.let { handler.removeCallbacks(it) }
+        backupRunnable = null
+    }
+
+    private fun ensureAlarmVolume() {
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            val minimum = (max * 0.7f).toInt().coerceAtLeast(1)
+            if (audioManager.getStreamVolume(AudioManager.STREAM_ALARM) < minimum) {
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, minimum, 0)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun startAlarmMediaAndVibration(escalating: Boolean) {
         stopAlarmMediaAndVibration()
+        ensureAlarmVolume()
 
         try {
             var alarmUri: Uri? = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -310,6 +398,14 @@ class AlarmRingingService : Service() {
         super.onDestroy()
         isServiceRunning = false
         isSilenced = false
+        penaltyActive = false
+        reSilenceUsed = false
+        stopBackupHeartbeat()
+        if (currentAlarmId > 0) {
+            // Normal stop: backup no longer needed. If the process is killed, onDestroy never
+            // runs and the pending backup alarm fires again.
+            AlarmScheduler.cancelBackup(applicationContext, currentAlarmId)
+        }
         stopAlarmMediaAndVibration()
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         notificationManager?.cancel(NOTIFICATION_ID)

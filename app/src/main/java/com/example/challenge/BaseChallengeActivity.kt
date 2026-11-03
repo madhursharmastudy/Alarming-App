@@ -172,9 +172,9 @@ abstract class BaseChallengeActivity : ComponentActivity() {
             }
         })
 
-        // Ensure alarm is silenced while solving
+        // Ensure alarm is silenced while solving (unless a penalty is active: then it stays loud)
         AlarmRingingService.silenceForChallenge(this)
-        isAlarmLoudState.value = false
+        isAlarmLoudState.value = AlarmRingingService.penaltyActive
 
         setContent {
             MyApplicationTheme {
@@ -257,9 +257,13 @@ abstract class BaseChallengeActivity : ComponentActivity() {
 
     fun reSilenceAlarm() {
         if (isCompletedState.value) return
-        AlarmRingingService.silenceForChallenge(this)
-        isAlarmLoudState.value = false
-        setFeedbackMessage(null)
+        // Only one re-silence is allowed per ringing session; after that the alarm stays loud
+        if (AlarmRingingService.reSilenceOnce(this)) {
+            isAlarmLoudState.value = false
+            setFeedbackMessage(null)
+        } else {
+            setFeedbackMessage("Alarm stays loud until you finish the challenge!", isError = true)
+        }
     }
 
     override fun onUserLeaveHint() {

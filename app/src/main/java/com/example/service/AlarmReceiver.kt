@@ -64,14 +64,11 @@ class AlarmReceiver : BroadcastReceiver() {
             CoroutineScope(Dispatchers.IO).launch {
                 val db = AppDatabase.getDatabase(context)
                 val alarm = db.alarmDao().getAlarmById(alarmId)
-                if (alarm != null && alarm.isEnabled) {
-                    if (alarm.daysOfWeek > 0) {
-                        AlarmScheduler.scheduleAlarm(context, alarm)
-                    } else {
-                        // One-time alarm, disable after ring
-                        db.alarmDao().updateAlarm(alarm.copy(isEnabled = false))
-                    }
+                if (alarm != null && alarm.isEnabled && alarm.daysOfWeek > 0) {
+                    AlarmScheduler.scheduleAlarm(context, alarm)
                 }
+                // One-time alarms are disabled by AlarmRingingService once the user finishes the
+                // challenge, so they are never disabled before they actually ring.
             }
         }
     }
