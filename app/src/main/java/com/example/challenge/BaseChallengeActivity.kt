@@ -138,6 +138,13 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     protected var alarmLabel: String = "Aurum Alarm"
     protected var refLabels: String? = null
 
+    // 0 = normal single challenge. 1..3 = current step of Force Mode (Shake -> Math -> QR)
+    protected var forceStep: Int = 0
+
+    companion object {
+        const val EXTRA_FORCE_STEP = "extra_force_step"
+    }
+
     abstract fun getChallengeType(): ChallengeType
     abstract fun getStageTimeLimit(stage: Int): Int
     abstract fun onStageStarted(stage: Int)
@@ -165,6 +172,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         alarmId = intent.getIntExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
         alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Aurum Alarm"
         refLabels = intent.getStringExtra(AlarmReceiver.EXTRA_REF_LABELS)
+        forceStep = intent.getIntExtra(EXTRA_FORCE_STEP, 0)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -182,8 +190,8 @@ abstract class BaseChallengeActivity : ComponentActivity() {
             }
         }
 
-        // Start Stage 1
-        startStage(1)
+        // Start Stage 1 (or the difficulty that matches the current Force Mode step)
+        startStage(restartStage())
     }
 
     protected fun startStage(stage: Int) {
@@ -214,8 +222,33 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         onStageStarted(stage)
     }
 
+    private fun restartStage(): Int = if (forceStep > 0) forceStep else 1
+
+    // Force Mode: hand over to the next challenge (step 1 Shake -> step 2 Math -> step 3 QR)
+    private fun launchNextForceStep() {
+        val nextStep = forceStep + 1
+        val nextClass = if (nextStep == 2) MathChallengeActivity::class.java else QrChallengeActivity::class.java
+        val next = Intent(this, nextClass).apply {
+            putExtras(intent)
+            putExtra(EXTRA_FORCE_STEP, nextStep)
+            addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+        }
+        startActivity(next)
+        finish()
+    }
+
     protected fun completeCurrentStage() {
         if (isCompletedState.value) return
+
+        if (forceStep in 1..2) {
+            stageTimer?.cancel()
+            stageTimer = null
+            abandonRunnable?.let { abandonHandler?.removeCallbacks(it) }
+            abandonRunnable = null
+            abandonHandler = null
+            launchNextForceStep()
+            return
+        }
 
         val current = currentStageState.value
         val total = getTotalStages()
@@ -252,7 +285,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         AlarmRingingService.resumeAlarm(this)
         setFeedbackMessage("TIME'S UP! Alarm resumed & reset to Stage 1!", isError = true)
         onResetToStage1()
-        startStage(1)
+        startStage(restartStage())
     }
 
     fun reSilenceAlarm() {
@@ -278,7 +311,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                 isAlarmLoudState.value = true
                 setFeedbackMessage("Abandoned! Alarm resumed & reset to Stage 1!", isError = true)
                 onResetToStage1()
-                startStage(1)
+                startStage(restartStage())
 
                 val bringToFrontIntent = Intent(applicationContext, this@BaseChallengeActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -356,9 +389,10 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                 ) {
                     // Section 1: Fixed-Height Compact Header with Non-overlapping Layout
                     ChallengeHeader(
-                        challengeType = getChallengeType(),
-                        currentStage = stage,
-                        totalStages = getTotalStages(),
+                        challengeType = if (forceStep > 0) ChallengeType.FORCE else getChallengeType(),
+                        currentStage = if (forceStep > 0) forceStep else stage,
+                        totalStages = if (forceStep > 0) 3 else getTotalStages(),
+                        stepTitles = if (forceStep > 0) listOf("Body", "Mind", "QR") else listOf("Low", "Moderate", "Difficult"),
                         remainingSec = remainingSec,
                         totalSec = totalSec,
                         progress = progress,
@@ -440,6 +474,7 @@ fun ChallengeHeader(
     challengeType: ChallengeType,
     currentStage: Int,
     totalStages: Int = 3,
+    stepTitles: List<String> = listOf("Low", "Moderate", "Difficult"),
     remainingSec: Int,
     totalSec: Int,
     progress: Float,
@@ -547,21 +582,21 @@ fun ChallengeHeader(
                 ) {
                     StageStepItem(
                         stageNumber = 1,
-                        title = "Low",
+                        title = stepTitles[0],
                         isCurrent = currentStage == 1,
                         isPassed = currentStage > 1,
                         modifier = Modifier.weight(1f)
                     )
                     StageStepItem(
                         stageNumber = 2,
-                        title = "Moderate",
+                        title = stepTitles[1],
                         isCurrent = currentStage == 2,
                         isPassed = currentStage > 2,
                         modifier = Modifier.weight(1f)
                     )
                     StageStepItem(
                         stageNumber = 3,
-                        title = "Difficult",
+                        title = stepTitles[2],
                         isCurrent = currentStage == 3,
                         isPassed = currentStage > 3,
                         modifier = Modifier.weight(1f)

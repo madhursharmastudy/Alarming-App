@@ -121,6 +121,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material.icons.filled.QrCodeScanner
 import com.example.challenge.QrScannerView
 import androidx.core.content.ContextCompat
+import androidx.compose.material.icons.filled.Bolt
+import com.example.challenge.BaseChallengeActivity
 import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
 import com.example.challenge.ImageArrangementChallengeActivity
@@ -196,12 +198,14 @@ class MainActivity : ComponentActivity() {
             ChallengeType.SHAKE -> ShakeChallengeActivity::class.java
             ChallengeType.STEPS -> StepsChallengeActivity::class.java
             ChallengeType.QR -> QrChallengeActivity::class.java
+            ChallengeType.FORCE -> ShakeChallengeActivity::class.java
         }
         val intent = Intent(this, targetClass).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
             putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, "Test ${type.displayName}")
             putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, type.name)
             putExtra(AlarmReceiver.EXTRA_REF_LABELS, "Cup, Sink, Bathroom, Tableware")
+            if (type == ChallengeType.FORCE) putExtra(BaseChallengeActivity.EXTRA_FORCE_STEP, 1)
         }
         startActivity(intent)
     }
@@ -469,6 +473,7 @@ fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
         ChallengeType.SHAKE -> Icons.Default.PhoneAndroid
         ChallengeType.STEPS -> Icons.Default.Timer
         ChallengeType.QR -> Icons.Default.QrCode
+        ChallengeType.FORCE -> Icons.Default.Bolt
     }
 
     Surface(
@@ -828,7 +833,7 @@ fun AddEditAlarmSheet(
                 }
             }
 
-            if (selectedChallengeType == ChallengeType.QR) {
+            if (selectedChallengeType == ChallengeType.QR || selectedChallengeType == ChallengeType.FORCE) {
                 val registeredQr = qrCode
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("Your QR / Barcode", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -865,7 +870,7 @@ fun AddEditAlarmSheet(
             // Save Action Button
             Button(
                 onClick = {
-                    if (selectedChallengeType == ChallengeType.QR && qrCode.isNullOrBlank()) {
+                    if ((selectedChallengeType == ChallengeType.QR || selectedChallengeType == ChallengeType.FORCE) && qrCode.isNullOrBlank()) {
                         Toast.makeText(editorContext, "Please register your QR first", Toast.LENGTH_LONG).show()
                         return@Button
                     }

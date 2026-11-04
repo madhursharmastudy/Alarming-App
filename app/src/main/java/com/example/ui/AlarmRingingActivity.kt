@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.challenge.BaseChallengeActivity
 import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
 import com.example.challenge.ImageArrangementChallengeActivity
@@ -133,6 +134,7 @@ class AlarmRingingActivity : ComponentActivity() {
             ChallengeType.SHAKE -> ShakeChallengeActivity::class.java
             ChallengeType.STEPS -> StepsChallengeActivity::class.java
             ChallengeType.QR -> QrChallengeActivity::class.java
+            ChallengeType.FORCE -> ShakeChallengeActivity::class.java
         }
 
         val intent = Intent(this, targetClass).apply {
@@ -140,6 +142,7 @@ class AlarmRingingActivity : ComponentActivity() {
             putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, alarmLabel)
             putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, challengeTypeStr)
             putExtra(AlarmReceiver.EXTRA_REF_LABELS, refLabels)
+            if (type == ChallengeType.FORCE) putExtra(BaseChallengeActivity.EXTRA_FORCE_STEP, 1)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_FORWARD_RESULT
         }
         startActivity(intent)

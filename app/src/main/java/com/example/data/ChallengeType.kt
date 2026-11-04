@@ -11,5 +11,6 @@ enum class ChallengeType(val displayName: String, val iconDescription: String) {
     MATH("Math Equations", "Sequential arithmetic problems per stage"),
     SHAKE("Shake Device", "High-energy device motion"),
     STEPS("Walk Steps", "Physical steps tracking"),
-    QR("QR Code Scan", "Scan custom QR / Barcode")
+    QR("QR Code Scan", "Scan custom QR / Barcode"),
+    FORCE("Force Mode", "Step 1 Shake (body), step 2 Math (mind), step 3 scan your QR")
 }
