@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,38 +108,42 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
         setFeedbackMessage("Follow the reference pattern above")
     }
 
+    private fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
+
+    // A segment from a to b must not pass over a dot that is not in the pattern yet,
+    // otherwise drawing it would automatically connect that extra dot.
+    private fun isSegmentClear(a: Int, b: Int, cols: Int, visited: List<Int>): Boolean {
+        val ax = a % cols
+        val ay = a / cols
+        val bx = b % cols
+        val by = b / cols
+        val dx = bx - ax
+        val dy = by - ay
+        val steps = gcd(kotlin.math.abs(dx), kotlin.math.abs(dy))
+        for (i in 1 until steps) {
+            val mx = ax + dx / steps * i
+            val my = ay + dy / steps * i
+            if ((my * cols + mx) !in visited) return false
+        }
+        return true
+    }
+
     private fun generateValidPattern(cols: Int, rows: Int, length: Int): List<Int> {
         val totalDots = cols * rows
-        val pattern = mutableListOf<Int>()
-        var current = Random.nextInt(totalDots)
-        pattern.add(current)
-
-        fun canConnect(a: Int, b: Int): Boolean {
-            val ax = a % cols
-            val ay = a / cols
-            val bx = b % cols
-            val by = b / cols
-            val dx = kotlin.math.abs(ax - bx)
-            val dy = kotlin.math.abs(ay - by)
-            return (dx <= 1 && dy <= 1) || (dx == 1 && dy == 2) || (dx == 2 && dy == 1)
-        }
-
-        while (pattern.size < length) {
-            val candidates = (0 until totalDots).filter { it !in pattern && canConnect(current, it) }
-            if (candidates.isNotEmpty()) {
-                current = candidates.random()
-                pattern.add(current)
-            } else {
-                val remaining = (0 until totalDots).filter { it !in pattern }
-                if (remaining.isNotEmpty()) {
-                    current = remaining.random()
-                    pattern.add(current)
-                } else {
-                    break
+        repeat(100) {
+            val pattern = mutableListOf(Random.nextInt(totalDots))
+            while (pattern.size < length) {
+                val current = pattern.last()
+                val candidates = (0 until totalDots).filter {
+                    it !in pattern && isSegmentClear(current, it, cols, pattern)
                 }
+                if (candidates.isEmpty()) break
+                pattern.add(candidates.random())
             }
+            if (pattern.size == length) return pattern
         }
-        return pattern
+        // Practically unreachable fallback: simple left-to-right, top-to-bottom order
+        return (0 until length.coerceAtMost(totalDots)).toList()
     }
 
     fun onUserPatternUpdated(pattern: List<Int>) {
@@ -312,7 +317,7 @@ fun PatternLockScreen(
                             activePattern = activeDrawnPattern.toList(),
                             currentTouch = touchPoint,
                             onDotConnected = { dot ->
-                                if (!activeDrawnPattern.contains(dot)) {
+                                if (activeDrawnPattern.size < targetPattern.size && !activeDrawnPattern.contains(dot)) {
                                     activeDrawnPattern.add(dot)
                                     onPatternUpdate(activeDrawnPattern.toList())
                                 }
@@ -439,6 +444,14 @@ fun InteractivePatternGridCanvas(
     val primaryColor = MaterialTheme.colorScheme.primary
     val dotInactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
 
+    // The gesture block below is started only once per grid size, so it must read the
+    // LATEST pattern/callbacks through these states (not the values from the first composition).
+    val latestPattern by rememberUpdatedState(activePattern)
+    val latestOnDotConnected by rememberUpdatedState(onDotConnected)
+    val latestOnTouchPointUpdate by rememberUpdatedState(onTouchPointUpdate)
+    val latestOnResetTouch by rememberUpdatedState(onResetTouch)
+    val latestOnTouchEnd by rememberUpdatedState(onTouchEnd)
+
     Canvas(
         modifier = Modifier
             .fillMaxSize()
@@ -448,13 +461,13 @@ fun InteractivePatternGridCanvas(
 
                 detectDragGestures(
                     onDragStart = { offset ->
-                        onResetTouch()
-                        onTouchPointUpdate(offset)
+                        latestOnResetTouch()
+                        latestOnTouchPointUpdate(offset)
                         // Check if touched directly on any dot
                         val dotCenters = computeDotCenters(size.width.toFloat(), size.height.toFloat(), cols, rows)
                         for (i in 0 until totalDots) {
                             if (hypot(offset.x - dotCenters[i].x, offset.y - dotCenters[i].y) <= hitRadiusPx) {
-                                onDotConnected(i)
+                                latestOnDotConnected(i)
                                 break
                             }
                         }
@@ -462,15 +475,15 @@ fun InteractivePatternGridCanvas(
                     onDrag = { change, _ ->
                         change.consume()
                         val currentPos = change.position
-                        onTouchPointUpdate(currentPos)
+                        latestOnTouchPointUpdate(currentPos)
 
                         val dotCenters = computeDotCenters(size.width.toFloat(), size.height.toFloat(), cols, rows)
-                        val lastDot = activePattern.lastOrNull()
+                        val lastDot = latestPattern.lastOrNull()
 
                         if (lastDot == null) {
                             for (i in 0 until totalDots) {
                                 if (hypot(currentPos.x - dotCenters[i].x, currentPos.y - dotCenters[i].y) <= hitRadiusPx) {
-                                    onDotConnected(i)
+                                    latestOnDotConnected(i)
                                     break
                                 }
                             }
@@ -479,7 +492,7 @@ fun InteractivePatternGridCanvas(
                             // Precise Segment-to-Dot detection: find all unvisited dots crossed by the segment
                             val candidates = mutableListOf<Pair<Int, Float>>()
                             for (i in 0 until totalDots) {
-                                if (!activePattern.contains(i)) {
+                                if (!latestPattern.contains(i)) {
                                     val (dist, t) = distAndTToSegment(dotCenters[i], lastCenter, currentPos)
                                     if (dist <= hitRadiusPx) {
                                         candidates.add(Pair(i, t))
@@ -489,12 +502,12 @@ fun InteractivePatternGridCanvas(
                             // Add in the exact order they are intersected along the line segment
                             candidates.sortBy { it.second }
                             for (candidate in candidates) {
-                                onDotConnected(candidate.first)
+                                latestOnDotConnected(candidate.first)
                             }
                         }
                     },
-                    onDragEnd = onTouchEnd,
-                    onDragCancel = onTouchEnd
+                    onDragEnd = { latestOnTouchEnd() },
+                    onDragCancel = { latestOnTouchEnd() }
                 )
             }
     ) {

@@ -15,62 +15,66 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-/**
- * Dark theme:
- * - background #0D0D0D (near-black)
- * - main/accent color #E53935 (bright red)
- * - text on accent color uses #0D0D0D
- */
 private val AurumDarkColorScheme = darkColorScheme(
     primary = AurumDarkAccent,
-    onPrimary = AurumDarkBackground,
-    primaryContainer = AurumDarkAccent.copy(alpha = 0.20f),
-    onPrimaryContainer = AurumDarkAccent,
-    secondary = AurumDarkAccent,
-    onSecondary = AurumDarkBackground,
-    secondaryContainer = AurumDarkAccent.copy(alpha = 0.14f),
-    onSecondaryContainer = AurumDarkAccent,
+    onPrimary = Color(0xFF00201C),
+    primaryContainer = Color(0xFF17423D),
+    onPrimaryContainer = Color(0xFFB7F0E7),
+    secondary = AurumDarkSecondary,
+    onSecondary = Color(0xFF0B2236),
+    secondaryContainer = Color(0xFF243649),
+    onSecondaryContainer = Color(0xFFD3E4F7),
+    tertiary = AurumDarkTertiary,
+    onTertiary = Color(0xFF3A2200),
     background = AurumDarkBackground,
-    onBackground = AurumDarkAccent,
-    surface = AurumDarkBackground,
-    onSurface = AurumDarkAccent,
-    surfaceVariant = AurumDarkAccent.copy(alpha = 0.12f),
-    onSurfaceVariant = AurumDarkAccent.copy(alpha = 0.85f),
-    outline = AurumDarkAccent.copy(alpha = 0.35f),
-    outlineVariant = AurumDarkAccent.copy(alpha = 0.20f),
-    error = AurumDarkAccent,
-    onError = AurumDarkBackground,
-    errorContainer = AurumDarkAccent.copy(alpha = 0.20f),
-    onErrorContainer = AurumDarkAccent
+    onBackground = AurumDarkText,
+    surface = AurumDarkSurface,
+    onSurface = AurumDarkText,
+    surfaceVariant = AurumDarkSurfaceHigh,
+    onSurfaceVariant = AurumDarkTextMuted,
+    surfaceTint = AurumDarkAccent,
+    surfaceContainerLowest = AurumDarkBackground,
+    surfaceContainerLow = AurumDarkSurface,
+    surfaceContainer = AurumDarkSurface,
+    surfaceContainerHigh = AurumDarkSurfaceHigh,
+    surfaceContainerHighest = AurumDarkSurfaceHigh,
+    outline = AurumDarkOutline,
+    outlineVariant = Color(0xFF2E3F50),
+    error = AurumDarkError,
+    onError = Color(0xFF3B0A07),
+    errorContainer = Color(0xFF5C1F1B),
+    onErrorContainer = Color(0xFFFFDAD6)
 )
 
-/**
- * Light theme:
- * - background #FAFAFA (near-white)
- * - main/accent color #C62828 (dark red)
- * - text on accent color uses #FFFFFF
- */
 private val AurumLightColorScheme = lightColorScheme(
     primary = AurumLightAccent,
     onPrimary = Color.White,
-    primaryContainer = AurumLightAccent.copy(alpha = 0.18f),
-    onPrimaryContainer = AurumLightAccent,
-    secondary = AurumLightAccent,
+    primaryContainer = Color(0xFFB7F0E7),
+    onPrimaryContainer = Color(0xFF00201C),
+    secondary = AurumLightSecondary,
     onSecondary = Color.White,
-    secondaryContainer = AurumLightAccent.copy(alpha = 0.12f),
-    onSecondaryContainer = AurumLightAccent,
+    secondaryContainer = Color(0xFFD3E4F7),
+    onSecondaryContainer = Color(0xFF0B2236),
+    tertiary = AurumLightTertiary,
+    onTertiary = Color.White,
     background = AurumLightBackground,
-    onBackground = AurumLightAccent,
-    surface = AurumLightBackground,
-    onSurface = AurumLightAccent,
-    surfaceVariant = AurumLightAccent.copy(alpha = 0.10f),
-    onSurfaceVariant = AurumLightAccent.copy(alpha = 0.85f),
-    outline = AurumLightAccent.copy(alpha = 0.35f),
-    outlineVariant = AurumLightAccent.copy(alpha = 0.18f),
-    error = AurumLightAccent,
+    onBackground = AurumLightText,
+    surface = AurumLightSurface,
+    onSurface = AurumLightText,
+    surfaceVariant = AurumLightSurfaceHigh,
+    onSurfaceVariant = AurumLightTextMuted,
+    surfaceTint = AurumLightAccent,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = AurumLightBackground,
+    surfaceContainer = AurumLightSurface,
+    surfaceContainerHigh = AurumLightSurfaceHigh,
+    surfaceContainerHighest = AurumLightSurfaceHigh,
+    outline = AurumLightOutline,
+    outlineVariant = Color(0xFFC3D2DD),
+    error = AurumLightError,
     onError = Color.White,
-    errorContainer = AurumLightAccent.copy(alpha = 0.20f),
-    onErrorContainer = AurumLightAccent
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002)
 )
 
 @Composable
