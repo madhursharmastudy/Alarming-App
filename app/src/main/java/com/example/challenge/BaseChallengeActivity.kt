@@ -69,6 +69,8 @@ import com.example.service.AlarmReceiver
 import com.example.service.AlarmRingingService
 import com.example.ui.EmergencyEscapeButton
 import com.example.ui.SoftWakeBrightness
+import com.example.ui.WakeLevel
+import com.example.ui.WakeStats
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -94,6 +96,8 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     val totalStageTime = totalStageTimeState.asStateFlow()
 
     protected val isCompletedState = MutableStateFlow(false)
+    private val wakeSecondsState = MutableStateFlow(0)
+    private val streakState = MutableStateFlow(0)
     val isCompleted = isCompletedState.asStateFlow()
 
     data class ChallengeFeedback(
@@ -206,7 +210,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         if (isCompletedState.value) return
 
         currentStageState.value = stage
-        val timeLimitSec = getStageTimeLimit(stage)
+        val timeLimitSec = (getStageTimeLimit(stage) * WakeLevel.current(this).timeMultiplier).toInt().coerceAtLeast(10)
         totalStageTimeState.value = timeLimitSec
         timeLeftState.value = timeLimitSec
 
@@ -280,6 +284,16 @@ abstract class BaseChallengeActivity : ComponentActivity() {
             timeoutNoticeState.value = null
 
             isAlarmLoudState.value = false
+
+            // Record how long it took to get up (only for real alarms, not test runs)
+            val ringStart = AlarmRingingService.ringStartTime
+            if (alarmId > 0 && ringStart > 0L) {
+                val wakeSec = ((System.currentTimeMillis() - ringStart) / 1000L).toInt().coerceAtLeast(1)
+                WakeStats.recordWake(this, wakeSec)
+                wakeSecondsState.value = wakeSec
+                streakState.value = WakeStats.currentStreak(this)
+            }
+
             AlarmRingingService.stopAlarm(this)
             isCompletedState.value = true
         }
@@ -382,7 +396,11 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         ) {
             if (completed) {
                 // Terminal Completed State: ONE message only, no header, no toast, no banner over dismiss button
+                val wakeSeconds by wakeSecondsState.collectAsState()
+                val streak by streakState.collectAsState()
                 ChallengeSuccessView(
+                    wakeSeconds = wakeSeconds,
+                    streak = streak,
                     onDismiss = {
                         AlarmRingingService.stopAlarm(this@BaseChallengeActivity)
                         finish()
@@ -726,7 +744,7 @@ fun StageStepItem(
 }
 
 @Composable
-fun ChallengeSuccessView(onDismiss: () -> Unit) {
+fun ChallengeSuccessView(wakeSeconds: Int = 0, streak: Int = 0, onDismiss: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -785,7 +803,35 @@ fun ChallengeSuccessView(onDismiss: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                if (wakeSeconds > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "You got up in ${WakeStats.formatDuration(wakeSeconds)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    if (streak > 0) {
+                        Text(
+                            text = "Streak: $streak day${if (streak == 1) "" else "s"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Next: drink some water and get a little daylight.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
                     onClick = onDismiss,

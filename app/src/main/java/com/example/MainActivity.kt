@@ -143,6 +143,7 @@ import com.example.service.AlarmRingingService
 import com.example.service.AlarmScheduler
 import com.example.ui.AlarmRingingActivity
 import com.example.ui.PermissionSetupCard
+import com.example.ui.WakeStatsCard
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -285,6 +286,9 @@ fun MainAppScreen(
 
                 // Shows only the permissions/settings that still need attention
                 PermissionSetupCard(modifier = Modifier.padding(bottom = 12.dp))
+
+                // Streak, weekly summary and difficulty level
+                WakeStatsCard(modifier = Modifier.padding(bottom = 12.dp))
 
                 // Quick Challenge Tester Drawer / Row
                 QuickChallengeTestBar(onTestChallenge = onTestChallenge)
