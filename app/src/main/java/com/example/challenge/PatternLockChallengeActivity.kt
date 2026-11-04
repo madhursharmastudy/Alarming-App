@@ -45,6 +45,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ChallengeType
@@ -105,37 +109,45 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
         val pattern = generateValidPattern(cols, rows, patternLen)
         targetPatternState.value = pattern
         userPatternState.value = emptyList()
-        setFeedbackMessage("Follow the reference pattern above")
+        setFeedbackMessage("Start at dot 1 and follow the numbers 1 → ${pattern.size}")
     }
 
-    private fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
-
-    // A segment from a to b must not pass over a dot that is not in the pattern yet,
-    // otherwise drawing it would automatically connect that extra dot.
-    private fun isSegmentClear(a: Int, b: Int, cols: Int, visited: List<Int>): Boolean {
-        val ax = a % cols
-        val ay = a / cols
-        val bx = b % cols
-        val by = b / cols
-        val dx = bx - ax
-        val dy = by - ay
-        val steps = gcd(kotlin.math.abs(dx), kotlin.math.abs(dy))
-        for (i in 1 until steps) {
-            val mx = ax + dx / steps * i
-            val my = ay + dy / steps * i
-            if ((my * cols + mx) !in visited) return false
+    // Clean, easy to read patterns: every step goes to a neighbouring dot (up, down, left, right
+    // or diagonal) and two diagonal lines never cross each other (no confusing "X" shapes).
+    private fun hasEdge(pattern: List<Int>, p: Int, q: Int): Boolean {
+        for (i in 0 until pattern.size - 1) {
+            val a = pattern[i]
+            val b = pattern[i + 1]
+            if ((a == p && b == q) || (a == q && b == p)) return true
         }
-        return true
+        return false
     }
 
     private fun generateValidPattern(cols: Int, rows: Int, length: Int): List<Int> {
         val totalDots = cols * rows
-        repeat(100) {
+        repeat(200) {
             val pattern = mutableListOf(Random.nextInt(totalDots))
             while (pattern.size < length) {
                 val current = pattern.last()
-                val candidates = (0 until totalDots).filter {
-                    it !in pattern && isSegmentClear(current, it, cols, pattern)
+                val cx = current % cols
+                val cy = current / cols
+                val candidates = mutableListOf<Int>()
+                for (dy in -1..1) {
+                    for (dx in -1..1) {
+                        if (dx == 0 && dy == 0) continue
+                        val nx = cx + dx
+                        val ny = cy + dy
+                        if (nx !in 0 until cols || ny !in 0 until rows) continue
+                        val next = ny * cols + nx
+                        if (next in pattern) continue
+                        if (dx != 0 && dy != 0) {
+                            // The other diagonal of the same little square must not be used already
+                            val p = cy * cols + (cx + dx)
+                            val q = (cy + dy) * cols + cx
+                            if (hasEdge(pattern, p, q)) continue
+                        }
+                        candidates.add(next)
+                    }
                 }
                 if (candidates.isEmpty()) break
                 pattern.add(candidates.random())
@@ -152,12 +164,12 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
 
     fun onUserPatternCompleted(pattern: List<Int>) {
         val target = targetPatternState.value
-        if (pattern == target) {
+        if (pattern.isNotEmpty() && (pattern == target || pattern == target.reversed())) {
             setFeedbackMessage("Pattern verified! Stage Completed!", isSuccess = true)
             completeCurrentStage()
         } else {
             // Keep the same pattern visible and let user retry immediately
-            setFeedbackMessage("Pattern mismatch! Follow the reference to retry.", isError = true)
+            setFeedbackMessage("Not correct. Start at dot 1 and follow the numbers in order.", isError = true)
             userPatternState.value = emptyList()
         }
     }
@@ -314,6 +326,7 @@ fun PatternLockScreen(
                         InteractivePatternGridCanvas(
                             cols = cols,
                             rows = rows,
+                            targetPattern = targetPattern,
                             activePattern = activeDrawnPattern.toList(),
                             currentTouch = touchPoint,
                             onDotConnected = { dot ->
@@ -434,6 +447,7 @@ fun MiniPatternReferenceCanvas(
 fun InteractivePatternGridCanvas(
     cols: Int,
     rows: Int,
+    targetPattern: List<Int>,
     activePattern: List<Int>,
     currentTouch: Offset?,
     onDotConnected: (Int) -> Unit,
@@ -443,6 +457,11 @@ fun InteractivePatternGridCanvas(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val dotInactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    val guideColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val startColor = MaterialTheme.colorScheme.tertiary
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
+    val textMeasurer = rememberTextMeasurer()
 
     // The gesture block below is started only once per grid size, so it must read the
     // LATEST pattern/callbacks through these states (not the values from the first composition).
@@ -457,7 +476,10 @@ fun InteractivePatternGridCanvas(
             .fillMaxSize()
             .pointerInput(cols, rows) {
                 val totalDots = cols * rows
-                val hitRadiusPx = 20.dp.toPx()
+                fun hitRadiusPx(): Float {
+                    val spacing = minOf(size.width / cols.toFloat(), size.height / rows.toFloat())
+                    return (spacing * 0.30f).coerceIn(20.dp.toPx(), 36.dp.toPx())
+                }
 
                 detectDragGestures(
                     onDragStart = { offset ->
@@ -466,7 +488,7 @@ fun InteractivePatternGridCanvas(
                         // Check if touched directly on any dot
                         val dotCenters = computeDotCenters(size.width.toFloat(), size.height.toFloat(), cols, rows)
                         for (i in 0 until totalDots) {
-                            if (hypot(offset.x - dotCenters[i].x, offset.y - dotCenters[i].y) <= hitRadiusPx) {
+                            if (hypot(offset.x - dotCenters[i].x, offset.y - dotCenters[i].y) <= hitRadiusPx()) {
                                 latestOnDotConnected(i)
                                 break
                             }
@@ -482,7 +504,7 @@ fun InteractivePatternGridCanvas(
 
                         if (lastDot == null) {
                             for (i in 0 until totalDots) {
-                                if (hypot(currentPos.x - dotCenters[i].x, currentPos.y - dotCenters[i].y) <= hitRadiusPx) {
+                                if (hypot(currentPos.x - dotCenters[i].x, currentPos.y - dotCenters[i].y) <= hitRadiusPx()) {
                                     latestOnDotConnected(i)
                                     break
                                 }
@@ -494,7 +516,7 @@ fun InteractivePatternGridCanvas(
                             for (i in 0 until totalDots) {
                                 if (!latestPattern.contains(i)) {
                                     val (dist, t) = distAndTToSegment(dotCenters[i], lastCenter, currentPos)
-                                    if (dist <= hitRadiusPx) {
+                                    if (dist <= hitRadiusPx()) {
                                         candidates.add(Pair(i, t))
                                     }
                                 }
@@ -513,6 +535,35 @@ fun InteractivePatternGridCanvas(
     ) {
         val totalDots = cols * rows
         val dotCenters = computeDotCenters(size.width, size.height, cols, rows)
+
+        // Guide: faint dashed path with arrows showing the direction to follow
+        for (k in 0 until targetPattern.size - 1) {
+            val from = dotCenters[targetPattern[k]]
+            val to = dotCenters[targetPattern[k + 1]]
+            drawLine(
+                color = guideColor.copy(alpha = 0.45f),
+                start = from,
+                end = to,
+                strokeWidth = 3.dp.toPx(),
+                cap = StrokeCap.Round,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 12f), 0f)
+            )
+            val len = hypot(to.x - from.x, to.y - from.y)
+            if (len > 0f) {
+                val ux = (to.x - from.x) / len
+                val uy = (to.y - from.y) / len
+                val tip = Offset(to.x - ux * 24.dp.toPx(), to.y - uy * 24.dp.toPx())
+                val wing = 7.dp.toPx()
+                val back = Offset(tip.x - ux * wing * 1.6f, tip.y - uy * wing * 1.6f)
+                val arrow = Path().apply {
+                    moveTo(tip.x, tip.y)
+                    lineTo(back.x - uy * wing, back.y + ux * wing)
+                    lineTo(back.x + uy * wing, back.y - ux * wing)
+                    close()
+                }
+                drawPath(path = arrow, color = guideColor.copy(alpha = 0.7f))
+            }
+        }
 
         // Draw connecting path
         if (activePattern.size > 1) {
@@ -562,6 +613,35 @@ fun InteractivePatternGridCanvas(
                 color = if (isDotInPattern) primaryColor else dotInactiveColor,
                 radius = if (isDotInPattern) activeRadius else baseRadius,
                 center = center
+            )
+        }
+
+        // Numbers 1..N on the dots to follow (dot 1 = start, highlighted)
+        for (k in targetPattern.indices) {
+            val center = dotCenters[targetPattern[k]]
+            val connected = activePattern.contains(targetPattern[k])
+            val ringRadius = 17.dp.toPx()
+            if (connected) {
+                drawCircle(color = primaryColor, radius = ringRadius, center = center)
+            } else {
+                drawCircle(
+                    color = if (k == 0) startColor else guideColor.copy(alpha = 0.8f),
+                    radius = ringRadius,
+                    center = center,
+                    style = Stroke(width = if (k == 0) 3.5.dp.toPx() else 2.dp.toPx())
+                )
+            }
+            val layout = textMeasurer.measure(
+                text = (k + 1).toString(),
+                style = TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (connected) onPrimaryColor else if (k == 0) startColor else textColor
+                )
+            )
+            drawText(
+                textLayoutResult = layout,
+                topLeft = Offset(center.x - layout.size.width / 2f, center.y - layout.size.height / 2f)
             )
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -188,7 +189,8 @@ fun CardArrangementScreen(
     val density = LocalDensity.current
     val flat = remember(grid) { grid.flatten() }
     val currentOnMove by rememberUpdatedState(onMove)
-    var boardCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var boardOrigin by remember { mutableStateOf(Offset.Zero) }
+    val latestCount by rememberUpdatedState(flat.size)
     val slotRects = remember { mutableStateMapOf<Int, Rect>() }
 
     // Card being dragged (flat index), the slot it currently hovers over, and finger position
@@ -204,11 +206,14 @@ fun CardArrangementScreen(
     // Slot under the finger; if the finger is outside every slot, the nearest slot is used,
     // so the card can be dropped anywhere on the board.
     fun slotAt(pos: Offset): Int {
+        // pos is relative to the board; slot rectangles are stored in root coordinates
+        val rootPos = pos + boardOrigin
         var best = -1
         var bestDist = Float.MAX_VALUE
         for ((index, rect) in slotRects) {
-            if (rect.contains(pos)) return index
-            val d = (rect.center - pos).getDistance()
+            if (index >= latestCount) continue // old slot from a bigger stage
+            if (rect.contains(rootPos)) return index
+            val d = (rect.center - rootPos).getDistance()
             if (d < bestDist) {
                 bestDist = d
                 best = index
@@ -251,8 +256,9 @@ fun CardArrangementScreen(
         val availableH = (totalH - 84.dp).coerceAtLeast(160.dp)
         val rowH = (availableH / 4).coerceIn(36.dp, 76.dp)
 
-        val availableW = (totalW - 40.dp).coerceAtLeast(120.dp)
-        val cardW = (availableW / cardsPerSuit.coerceAtLeast(1)).coerceIn(24.dp, 64.dp)
+        // Width left for the cards of one row (minus paddings, suit box and gaps), so no card is squeezed out
+        val availableW = (totalW - 56.dp - 3.dp * (cardsPerSuit - 1).coerceAtLeast(0)).coerceAtLeast(120.dp)
+        val cardW = (availableW / cardsPerSuit.coerceAtLeast(1)).coerceIn(22.dp, 64.dp)
         val cardH = (rowH - 6.dp).coerceAtLeast(30.dp)
 
         Column(
@@ -275,8 +281,13 @@ fun CardArrangementScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = if (!orderMatters) "Goal: Match Each Row to Its Suit" else "Goal: Match Suit + Ascending Rank",
-                    fontSize = 11.sp,
+                    text = if (!orderMatters) {
+                        "Goal: Match Each Row to Its Suit"
+                    } else {
+                        "Goal: suit rows, left to right: " + expectedRanks.joinToString(" ") { it.label }
+                    },
+                    maxLines = 1,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -293,7 +304,7 @@ fun CardArrangementScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .onGloballyPositioned { boardCoords = it }
+                    .onGloballyPositioned { boardOrigin = it.positionInRoot() }
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { offset ->
@@ -382,11 +393,9 @@ fun CardArrangementScreen(
                                                 .width(cardW)
                                                 .height(cardH)
                                                 .onGloballyPositioned { coords ->
-                                                    val board = boardCoords
-                                                    if (board != null && board.isAttached && coords.isAttached) {
-                                                        val topLeft = board.localPositionOf(coords, Offset.Zero)
+                                                    if (coords.isAttached) {
                                                         slotRects[index] = Rect(
-                                                            topLeft,
+                                                            coords.positionInRoot(),
                                                             Size(coords.size.width.toFloat(), coords.size.height.toFloat())
                                                         )
                                                     }
