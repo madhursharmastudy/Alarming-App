@@ -76,6 +76,7 @@ private val AurumLightColorScheme = lightColorScheme(
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    forceDark: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -85,7 +86,7 @@ fun MyApplicationTheme(
 
     val mode by ThemePreferences.themeModeFlow.collectAsState()
     val systemInDark = isSystemInDarkTheme()
-    val useDark = when (mode) {
+    val useDark = forceDark || when (mode) {
         AppThemeMode.SYSTEM -> systemInDark
         AppThemeMode.DARK -> true
         AppThemeMode.LIGHT -> false

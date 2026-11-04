@@ -88,6 +88,15 @@ class AlarmRingingService : Service() {
         @Volatile
         private var reSilenceUsed = false
 
+        // When the current ringing session started (used by the soft-wake brightness ramp)
+        @Volatile
+        var ringStartTime = 0L
+            private set
+
+        fun markRingStartIfNeeded() {
+            if (ringStartTime == 0L) ringStartTime = System.currentTimeMillis()
+        }
+
         fun silenceForChallenge(context: Context) {
             // Do not allow free silencing while a penalty is active
             if (penaltyActive) return
@@ -174,6 +183,7 @@ class AlarmRingingService : Service() {
                 isSilenced = false
                 penaltyActive = false
                 reSilenceUsed = false
+                ringStartTime = System.currentTimeMillis()
                 currentAlarmId = alarmId
                 currentAlarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "Aurum Alarm"
                 currentChallengeType = intent.getStringExtra(EXTRA_CHALLENGE_TYPE) ?: ChallengeType.MATH.name
@@ -201,6 +211,7 @@ class AlarmRingingService : Service() {
                 isSilenced = false
                 penaltyActive = false
                 reSilenceUsed = false
+                ringStartTime = 0L
                 stopBackupHeartbeat()
                 if (finishedAlarmId > 0) {
                     AlarmScheduler.cancelBackup(applicationContext, finishedAlarmId)

@@ -80,6 +80,7 @@ class AlarmRingingActivity : ComponentActivity() {
     private var alarmLabel: String = "Aurum Alarm"
     private var challengeTypeStr: String = ChallengeType.MATH.name
     private var refLabels: String? = null
+    private lateinit var softWake: SoftWakeBrightness
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,15 +108,28 @@ class AlarmRingingActivity : ComponentActivity() {
             }
         })
 
+        softWake = SoftWakeBrightness(this)
+        softWake.start()
+
         setContent {
-            MyApplicationTheme {
+            // Always dark at wake-up time: a bright white screen is hard on sleepy eyes
+            MyApplicationTheme(forceDark = true) {
                 AlarmRingingScreen(
                     alarmLabel = alarmLabel,
                     challengeType = try { ChallengeType.valueOf(challengeTypeStr) } catch (e: Exception) { ChallengeType.MATH },
-                    onStartChallenge = { startChallengeFlow() }
+                    onStartChallenge = { startChallengeFlow() },
+                    onEscape = {
+                        AlarmRingingService.stopAlarm(this)
+                        finish()
+                    }
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        softWake.stop()
     }
 
     private fun startChallengeFlow() {
@@ -154,14 +168,15 @@ class AlarmRingingActivity : ComponentActivity() {
 fun AlarmRingingScreen(
     alarmLabel: String,
     challengeType: ChallengeType,
-    onStartChallenge: () -> Unit
+    onStartChallenge: () -> Unit,
+    onEscape: () -> Unit = {}
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
+        initialValue = 0.98f,
+        targetValue = 1.02f,
         animationSpec = infiniteRepeatable(
-            animation = tween(600),
+            animation = tween(2000),
             repeatMode = RepeatMode.Reverse
         ),
         label = "alarmPulse"
@@ -351,7 +366,7 @@ fun AlarmRingingScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "Start Challenge (Silence Alarm)",
+                            text = "I'm Up! Start Challenge (Silences Alarm)",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -363,6 +378,8 @@ fun AlarmRingingScreen(
                         )
                     }
                 }
+
+                EmergencyEscapeButton(onEscape = onEscape)
             }
         }
     }

@@ -67,6 +67,8 @@ import androidx.compose.ui.unit.sp
 import com.example.data.ChallengeType
 import com.example.service.AlarmReceiver
 import com.example.service.AlarmRingingService
+import com.example.ui.EmergencyEscapeButton
+import com.example.ui.SoftWakeBrightness
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -141,6 +143,8 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     // 0 = normal single challenge. 1..3 = current step of Force Mode (Shake -> Math -> QR)
     protected var forceStep: Int = 0
 
+    private lateinit var softWake: SoftWakeBrightness
+
     companion object {
         const val EXTRA_FORCE_STEP = "extra_force_step"
     }
@@ -184,8 +188,12 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         AlarmRingingService.silenceForChallenge(this)
         isAlarmLoudState.value = AlarmRingingService.penaltyActive
 
+        softWake = SoftWakeBrightness(this)
+        softWake.start()
+
         setContent {
-            MyApplicationTheme {
+            // Always dark at wake-up time: a bright white screen is hard on sleepy eyes
+            MyApplicationTheme(forceDark = true) {
                 ChallengeScreenWrapper()
             }
         }
@@ -334,6 +342,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        softWake.stop()
         stageTimer?.cancel()
         abandonRunnable?.let { abandonHandler?.removeCallbacks(it) }
         feedbackClearRunnable?.let { feedbackHandler.removeCallbacks(it) }
@@ -359,9 +368,9 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         val pulseAnim = rememberInfiniteTransition(label = "pulse")
         val pulseScale by pulseAnim.animateFloat(
             initialValue = 1.0f,
-            targetValue = if (isUrgent || isLoud) 1.06f else 1.0f,
+            targetValue = if (isUrgent || isLoud) 1.03f else 1.0f,
             animationSpec = infiniteRepeatable(
-                animation = tween(500),
+                animation = tween(900),
                 repeatMode = RepeatMode.Reverse
             ),
             label = "scale"
@@ -463,6 +472,14 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                     ) {
                         ChallengeContent(modifier = Modifier.fillMaxSize())
                     }
+
+                    EmergencyEscapeButton(
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        onEscape = {
+                            AlarmRingingService.stopAlarm(this@BaseChallengeActivity)
+                            finish()
+                        }
+                    )
                 }
             }
         }

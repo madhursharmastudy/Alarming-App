@@ -142,6 +142,7 @@ import com.example.service.AlarmReceiver
 import com.example.service.AlarmRingingService
 import com.example.service.AlarmScheduler
 import com.example.ui.AlarmRingingActivity
+import com.example.ui.PermissionSetupCard
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -281,6 +282,9 @@ fun MainAppScreen(
                 HeaderBrandingSection()
 
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Shows only the permissions/settings that still need attention
+                PermissionSetupCard(modifier = Modifier.padding(bottom = 12.dp))
 
                 // Quick Challenge Tester Drawer / Row
                 QuickChallengeTestBar(onTestChallenge = onTestChallenge)
