@@ -116,6 +116,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material.icons.filled.QrCodeScanner
+import com.example.challenge.QrScannerView
 import androidx.core.content.ContextCompat
 import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
@@ -552,7 +556,7 @@ fun AlarmCardItem(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "3-Stage ${alarm.challengeType.displayName}",
+                            text = if (alarm.challengeType == ChallengeType.QR) alarm.challengeType.displayName else "3-Stage ${alarm.challengeType.displayName}",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -647,6 +651,53 @@ fun AddEditAlarmSheet(
     var selectedChallengeType by remember { mutableStateOf(initialAlarm?.challengeType ?: ChallengeType.MATH) }
     var selectedDays by remember { mutableIntStateOf(initialAlarm?.daysOfWeek ?: 127) }
     var refLabels by remember { mutableStateOf(initialAlarm?.referenceLabels ?: "") }
+    val editorContext = LocalContext.current
+    var qrCode by remember { mutableStateOf(initialAlarm?.qrCode) }
+    var showQrScanner by remember { mutableStateOf(false) }
+    val qrPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            showQrScanner = true
+        } else {
+            Toast.makeText(editorContext, "Camera permission is needed to scan your QR", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    if (showQrScanner) {
+        Dialog(
+            onDismissRequest = { showQrScanner = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    QrScannerView(
+                        modifier = Modifier.fillMaxSize(),
+                        onCodeScanned = { value ->
+                            qrCode = value
+                            showQrScanner = false
+                        }
+                    )
+                    Text(
+                        text = "Point the camera at your QR / barcode",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(24.dp)
+                    )
+                    TextButton(
+                        onClick = { showQrScanner = false },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(24.dp)
+                    ) {
+                        Text("Cancel", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -777,11 +828,47 @@ fun AddEditAlarmSheet(
                 }
             }
 
+            if (selectedChallengeType == ChallengeType.QR) {
+                val registeredQr = qrCode
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Your QR / Barcode", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (registeredQr.isNullOrBlank()) {
+                        "Not registered yet. Keep a QR or barcode in another room (like the bathroom) and scan it here once."
+                    } else {
+                        "Registered: ${registeredQr.take(24)}"
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = {
+                        val granted = ContextCompat.checkSelfPermission(
+                            editorContext, Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (granted) showQrScanner = true
+                        else qrPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("register_qr_button")
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (registeredQr.isNullOrBlank()) "Scan & Register QR" else "Scan Again to Change")
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Save Action Button
             Button(
                 onClick = {
+                    if (selectedChallengeType == ChallengeType.QR && qrCode.isNullOrBlank()) {
+                        Toast.makeText(editorContext, "Please register your QR first", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
                     val entity = AlarmEntity(
                         id = initialAlarm?.id ?: 0,
                         hour = selectedHour,
@@ -790,7 +877,8 @@ fun AddEditAlarmSheet(
                         isEnabled = true,
                         daysOfWeek = selectedDays,
                         challengeType = selectedChallengeType,
-                        referenceLabels = refLabels
+                        referenceLabels = refLabels,
+                        qrCode = qrCode
                     )
                     onSave(entity)
                 },

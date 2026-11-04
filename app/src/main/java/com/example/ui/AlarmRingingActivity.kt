@@ -206,7 +206,7 @@ fun AlarmRingingScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (challengeType == ChallengeType.CHARGER) "LOCKED: ACTION REQUIRED" else "LOCKED: 3-STAGE DISMISSAL",
+                        text = if (challengeType == ChallengeType.CHARGER || challengeType == ChallengeType.QR) "LOCKED: ACTION REQUIRED" else "LOCKED: 3-STAGE DISMISSAL",
                         fontWeight = FontWeight.Black,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.primary
@@ -321,7 +321,7 @@ fun AlarmRingingScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (challengeType == ChallengeType.CHARGER) "Physical Sensor Action • Auto-Silences on Start" else "3-Stage Progressive • Auto-Silences on Start",
+                            text = if (challengeType == ChallengeType.CHARGER || challengeType == ChallengeType.QR) "Physical Sensor Action • Auto-Silences on Start" else "3-Stage Progressive • Auto-Silences on Start",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1

@@ -15,6 +15,7 @@ data class AlarmEntity(
     val challengeType: ChallengeType = ChallengeType.MATH,
     val referencePhotoPath: String? = null,
     val referenceLabels: String? = null,
+    val qrCode: String? = null, // Registered QR / barcode value for the QR challenge
     val vibrate: Boolean = true,
     val escalatingVolume: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()

@@ -1,28 +1,23 @@
 package com.example.challenge
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,66 +30,98 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.data.AppDatabase
 import com.example.data.ChallengeType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+/**
+ * Real QR / barcode challenge: the user must scan the QR code registered for this alarm
+ * (for example one kept in the bathroom) with the camera. Single stage, 2 minutes.
+ */
 class QrChallengeActivity : BaseChallengeActivity() {
 
-    private val currentScansState = MutableStateFlow(0)
-    val currentScans = currentScansState.asStateFlow()
+    private val scanReadyState = MutableStateFlow(false)
 
-    private val targetScansState = MutableStateFlow(1)
-    val targetScans = targetScansState.asStateFlow()
+    // Registered code for this alarm. null = accept any code (test mode / old alarms)
+    private var expectedQr: String? = null
 
     override fun getChallengeType(): ChallengeType = ChallengeType.QR
 
-    override fun getStageTimeLimit(stage: Int): Int = when (stage) {
-        1 -> 40
-        2 -> 60
-        3 -> 80
-        else -> 40
-    }
+    // Single stage: the user has to get up and reach the QR code
+    override fun getTotalStages(): Int = 1
 
-    override fun onStageStarted(stage: Int) {
-        val target = when (stage) {
-            1 -> 1
-            2 -> 2
-            3 -> 3
-            else -> 1
+    override fun getStageTimeLimit(stage: Int): Int = 120
+
+    override fun onStageStarted(stage: Int) {}
+
+    override fun onResetToStage1() {}
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val hasCamera = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+        val hasPermission = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasCamera || !hasPermission) {
+            // Safety net: never leave the user stuck if the camera cannot be used
+            startFallbackChallenge()
+            return
         }
-        targetScansState.value = target
-        currentScansState.value = 0
+
+        if (alarmId > 0) {
+            lifecycleScope.launch {
+                val code = withContext(Dispatchers.IO) {
+                    AppDatabase.getDatabase(applicationContext).alarmDao().getAlarmById(alarmId)?.qrCode
+                }
+                expectedQr = code?.takeIf { it.isNotBlank() }
+                scanReadyState.value = true
+            }
+        } else {
+            scanReadyState.value = true
+        }
     }
 
-    override fun onResetToStage1() {
-        targetScansState.value = 1
-        currentScansState.value = 0
+    private fun startFallbackChallenge() {
+        Toast.makeText(
+            this,
+            "Camera not available. Switching to Steps challenge.",
+            Toast.LENGTH_LONG
+        ).show()
+        val next = Intent(this, StepsChallengeActivity::class.java).apply {
+            putExtras(intent)
+            addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+        }
+        startActivity(next)
+        finish()
     }
 
-    fun recordScan() {
-        val next = currentScansState.value + 1
-        currentScansState.value = next
-        if (next >= targetScansState.value) {
+    private fun onCodeScanned(value: String) {
+        if (!scanReadyState.value || isCompletedState.value) return
+        val expected = expectedQr
+        if (expected == null || value.trim() == expected.trim()) {
             completeCurrentStage()
+        } else {
+            setFeedbackMessage("Wrong code! Scan your registered QR.", isError = true)
         }
     }
 
     @Composable
     override fun ChallengeContent(modifier: Modifier) {
-        val scans by currentScans.collectAsState()
-        val target by targetScans.collectAsState()
-        val stage by currentStage.collectAsState()
-
-        val progress = if (target > 0) (scans.toFloat() / target.toFloat()).coerceIn(0f, 1f) else 0f
+        val ready by scanReadyState.collectAsState()
 
         Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Top
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -106,69 +133,39 @@ class QrChallengeActivity : BaseChallengeActivity() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Stage $stage: QR / Barcode Scan",
+                        text = "QR / Barcode Scan",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Scan your registered QR code or bathroom item barcode.",
+                        text = "Get up, go to your registered QR code (for example in the bathroom) and scan it.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                     )
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
             Box(
-                modifier = Modifier.size(240.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxSize(),
-                    strokeWidth = 14.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCodeScanner,
-                        contentDescription = "QR Scanner",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(60.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "$scans / $target",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "CODES SCANNED",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            Button(
-                onClick = { recordScan() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("scan_qr_action_button"),
-                shape = RoundedCornerShape(14.dp)
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black)
+                    .testTag("qr_camera_preview"),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.QrCode, contentDescription = "Scan")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Scan Code (+1)", fontWeight = FontWeight.Bold)
+                if (ready) {
+                    QrScannerView(
+                        modifier = Modifier.fillMaxSize(),
+                        onCodeScanned = { onCodeScanned(it) }
+                    )
+                } else {
+                    CircularProgressIndicator()
+                }
             }
         }
     }
