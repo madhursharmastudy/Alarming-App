@@ -3,6 +3,7 @@ package com.example.ui
 import android.content.Context
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,9 +57,9 @@ fun EmergencyEscapeButton(
     ) {
         Text(
             text = if (remaining > 0) {
-                "Emergency escape ($remaining left this week)"
+                "Emergency exit ($remaining left)"
             } else {
-                "No emergency escapes left this week"
+                "No emergency exits left"
             },
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -84,5 +85,24 @@ fun EmergencyEscapeButton(
                 TextButton(onClick = { showConfirm = false }) { Text("Keep going") }
             }
         )
+    }
+}
+
+/** TEMPORARY for testing: set SHOW_TEST_EXIT to false (or delete) before real use. */
+object TestMode {
+    const val SHOW_TEST_EXIT = true
+}
+
+@Composable
+fun TestExitButton(
+    modifier: Modifier = Modifier,
+    onExit: () -> Unit
+) {
+    if (!TestMode.SHOW_TEST_EXIT) return
+    OutlinedButton(
+        onClick = onExit,
+        modifier = modifier.testTag("test_exit_button")
+    ) {
+        Text("TEST: Exit puzzle", fontSize = 12.sp)
     }
 }

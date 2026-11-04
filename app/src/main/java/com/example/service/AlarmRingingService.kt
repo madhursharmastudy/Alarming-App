@@ -98,6 +98,9 @@ class AlarmRingingService : Service() {
         }
 
         fun silenceForChallenge(context: Context) {
+            // No real alarm ringing (e.g. test run): nothing to silence, and never start the
+            // service/notification just for that
+            if (!isServiceRunning) return
             // Do not allow free silencing while a penalty is active
             if (penaltyActive) return
             val intent = Intent(context, AlarmRingingService::class.java).apply {
@@ -108,6 +111,7 @@ class AlarmRingingService : Service() {
 
         /** The user may re-silence a penalised alarm only once per ringing session. */
         fun reSilenceOnce(context: Context): Boolean {
+            if (!isServiceRunning) return true
             if (reSilenceUsed) return false
             reSilenceUsed = true
             penaltyActive = false
@@ -119,6 +123,7 @@ class AlarmRingingService : Service() {
         }
 
         fun resumeAlarm(context: Context) {
+            if (!isServiceRunning) return
             penaltyActive = true
             val intent = Intent(context, AlarmRingingService::class.java).apply {
                 action = ACTION_RESUME_ALARM
@@ -372,9 +377,9 @@ class AlarmRingingService : Service() {
         )
 
         val title = if (isSilenced) "Challenge in Progress..." else "Aurum Alarm Ringing!"
-        val contentText = if (isSilenced) "Complete all 3 stages to stop the alarm" else "$currentAlarmLabel - Tap to start challenge"
+        val contentText = if (isSilenced) "Complete the challenge to stop the alarm" else "$currentAlarmLabel - Tap to start challenge"
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(contentText)
@@ -384,8 +389,14 @@ class AlarmRingingService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(fullScreenPendingIntent)
-            .setFullScreenIntent(fullScreenPendingIntent, true)
-            .build()
+            // Updates must not pop up / buzz again every time
+            .setOnlyAlertOnce(true)
+
+        // Only the first (ringing) notification may open the full-screen alarm
+        if (!isSilenced) {
+            builder.setFullScreenIntent(fullScreenPendingIntent, true)
+        }
+        return builder.build()
     }
 
     private fun createNotificationChannel() {

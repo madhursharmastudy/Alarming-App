@@ -379,7 +379,14 @@ fun AlarmRingingScreen(
                     }
                 }
 
-                EmergencyEscapeButton(onEscape = onEscape)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EmergencyEscapeButton(onEscape = onEscape)
+                    TestExitButton(onExit = onEscape)
+                }
             }
         }
     }

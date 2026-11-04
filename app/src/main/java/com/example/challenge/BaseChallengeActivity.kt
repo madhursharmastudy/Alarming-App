@@ -69,6 +69,7 @@ import com.example.service.AlarmReceiver
 import com.example.service.AlarmRingingService
 import com.example.ui.EmergencyEscapeButton
 import com.example.ui.SoftWakeBrightness
+import com.example.ui.TestExitButton
 import com.example.ui.WakeLevel
 import com.example.ui.WakeStats
 import com.example.ui.theme.MyApplicationTheme
@@ -491,13 +492,24 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                         ChallengeContent(modifier = Modifier.fillMaxSize())
                     }
 
-                    EmergencyEscapeButton(
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                        onEscape = {
-                            AlarmRingingService.stopAlarm(this@BaseChallengeActivity)
-                            finish()
-                        }
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        EmergencyEscapeButton(
+                            onEscape = {
+                                AlarmRingingService.stopAlarm(this@BaseChallengeActivity)
+                                finish()
+                            }
+                        )
+                        TestExitButton(
+                            onExit = {
+                                AlarmRingingService.stopAlarm(this@BaseChallengeActivity)
+                                finish()
+                            }
+                        )
+                    }
                 }
             }
         }
