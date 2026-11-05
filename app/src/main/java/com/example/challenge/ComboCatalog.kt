@@ -84,10 +84,10 @@ object ComboCatalog {
         ChallengeType.QR -> QrChallengeActivity::class.java
         ChallengeType.WALK_MATH -> WalkMathChallengeActivity::class.java
         ChallengeType.TURN_WALK -> TurnWalkChallengeActivity::class.java
-        ChallengeType.FACE_CHECK -> MathChallengeActivity::class.java // replaced below in a later step
-        ChallengeType.SQUAT -> MathChallengeActivity::class.java
-        ChallengeType.VOICE_MATH -> MathChallengeActivity::class.java
-        ChallengeType.LIGHT -> MathChallengeActivity::class.java
+        ChallengeType.FACE_CHECK -> FaceCheckChallengeActivity::class.java
+        ChallengeType.SQUAT -> SquatChallengeActivity::class.java
+        ChallengeType.VOICE_MATH -> VoiceMathChallengeActivity::class.java
+        ChallengeType.LIGHT -> LightChallengeActivity::class.java
         ChallengeType.OBJECT_PHOTO -> MathChallengeActivity::class.java
         ChallengeType.NFC_TAP -> QrChallengeActivity::class.java
         ChallengeType.COMBO -> MathChallengeActivity::class.java // never used directly

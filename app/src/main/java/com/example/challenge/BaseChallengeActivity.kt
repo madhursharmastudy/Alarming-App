@@ -157,6 +157,15 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         const val EXTRA_COMBO_ID = "extra_combo_id"
     }
 
+    protected fun canUseCamera(): Boolean =
+        packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY) &&
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    protected fun canUseMicrophone(): Boolean =
+        androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
     /** Safety net: if a task cannot run on this phone (no camera, no sensor), switch to another task. */
     protected fun fallbackTo(target: Class<*>, message: String) {
         android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()

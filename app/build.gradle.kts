@@ -101,6 +101,7 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.mlkit.image.labeling)
   implementation(libs.mlkit.barcode.scanning)
+  implementation(libs.mlkit.face.detection)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
