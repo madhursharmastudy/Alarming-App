@@ -42,20 +42,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.sqrt
 
-class StepsChallengeActivity : BaseChallengeActivity(), SensorEventListener {
+class StepsChallengeActivity : BaseChallengeActivity() {
 
-    private var sensorManager: SensorManager? = null
-    private var stepSensor: Sensor? = null
-    private var accelSensor: Sensor? = null
+    private var detector: StepDetector? = null
 
     private val currentStepsState = MutableStateFlow(0)
     val currentSteps = currentStepsState.asStateFlow()
 
     private val targetStepsState = MutableStateFlow(5)
     val targetSteps = targetStepsState.asStateFlow()
-
-    private var lastMagnitude = 0.0
-    private var lastStepTime = 0L
 
     override fun getChallengeType(): ChallengeType = ChallengeType.STEPS
 
@@ -68,24 +63,17 @@ class StepsChallengeActivity : BaseChallengeActivity(), SensorEventListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-        stepSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-        accelSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        detector = StepDetector(this) { recordStep() }
     }
 
     override fun onResume() {
         super.onResume()
-        stepSensor?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-        }
-        accelSensor?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-        }
+        detector?.start()
     }
 
     override fun onPause() {
         super.onPause()
-        sensorManager?.unregisterListener(this)
+        detector?.stop()
     }
 
     override fun onStageStarted(stage: Int) {
@@ -103,29 +91,6 @@ class StepsChallengeActivity : BaseChallengeActivity(), SensorEventListener {
         targetStepsState.value = 5
         currentStepsState.value = 0
     }
-
-    override fun onSensorChanged(event: SensorEvent?) {
-        if (event == null) return
-
-        if (event.sensor.type == Sensor.TYPE_STEP_DETECTOR) {
-            recordStep()
-        } else if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            // Fallback step calculation via accelerometer peak magnitude
-            val x = event.values[0]
-            val y = event.values[1]
-            val z = event.values[2]
-            val mag = sqrt((x * x + y * y + z * z).toDouble())
-            val now = System.currentTimeMillis()
-
-            if (mag - lastMagnitude > 3.5 && (now - lastStepTime) > 350) {
-                lastStepTime = now
-                recordStep()
-            }
-            lastMagnitude = mag
-        }
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     fun recordStep() {
         val next = currentStepsState.value + 1

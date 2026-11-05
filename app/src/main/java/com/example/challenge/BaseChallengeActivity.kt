@@ -147,11 +147,25 @@ abstract class BaseChallengeActivity : ComponentActivity() {
 
     // 0 = normal single challenge. 1..3 = current step of Force Mode (Shake -> Math -> QR)
     protected var forceStep: Int = 0
+    protected var comboId: Int = 0
+    private var comboSteps: List<ComboStep> = emptyList()
 
     private lateinit var softWake: SoftWakeBrightness
 
     companion object {
         const val EXTRA_FORCE_STEP = "extra_force_step"
+        const val EXTRA_COMBO_ID = "extra_combo_id"
+    }
+
+    /** Safety net: if a task cannot run on this phone (no camera, no sensor), switch to another task. */
+    protected fun fallbackTo(target: Class<*>, message: String) {
+        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
+        val next = Intent(this, target).apply {
+            putExtras(intent)
+            addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+        }
+        startActivity(next)
+        finish()
     }
 
     abstract fun getChallengeType(): ChallengeType
@@ -182,6 +196,9 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Aurum Alarm"
         refLabels = intent.getStringExtra(AlarmReceiver.EXTRA_REF_LABELS)
         forceStep = intent.getIntExtra(EXTRA_FORCE_STEP, 0)
+        comboId = intent.getIntExtra(EXTRA_COMBO_ID, 0)
+        comboSteps = ComboCatalog.byId(comboId)?.steps ?: emptyList()
+        if (comboSteps.isEmpty()) forceStep = 0
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -235,12 +252,15 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         onStageStarted(stage)
     }
 
-    private fun restartStage(): Int = if (forceStep > 0) forceStep else 1
+    // Difficulty (stage number) the current task runs at: normal tasks start at stage 1,
+    // a combo step uses the difficulty given by the combo.
+    private fun restartStage(): Int =
+        if (forceStep > 0 && comboSteps.isNotEmpty()) comboSteps[(forceStep - 1).coerceIn(0, comboSteps.size - 1)].difficulty else 1
 
-    // Force Mode: hand over to the next challenge (step 1 Shake -> step 2 Math -> step 3 QR)
+    // Combo: hand over to the next task of the combo
     private fun launchNextForceStep() {
         val nextStep = forceStep + 1
-        val nextClass = if (nextStep == 2) MathChallengeActivity::class.java else QrChallengeActivity::class.java
+        val nextClass = ComboCatalog.activityClass(comboSteps[nextStep - 1].type)
         val next = Intent(this, nextClass).apply {
             putExtras(intent)
             putExtra(EXTRA_FORCE_STEP, nextStep)
@@ -253,7 +273,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
     protected fun completeCurrentStage() {
         if (isCompletedState.value) return
 
-        if (forceStep in 1..2) {
+        if (forceStep >= 1 && forceStep < comboSteps.size) {
             stageTimer?.cancel()
             stageTimer = null
             abandonRunnable?.let { abandonHandler?.removeCallbacks(it) }
@@ -266,7 +286,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
         val current = currentStageState.value
         val total = getTotalStages()
 
-        if (current < total) {
+        if (forceStep == 0 && current < total) {
             val next = current + 1
             setFeedbackMessage("Stage $current Passed! Advancing...", isSuccess = true)
             startStage(next)
@@ -417,10 +437,11 @@ abstract class BaseChallengeActivity : ComponentActivity() {
                 ) {
                     // Section 1: Fixed-Height Compact Header with Non-overlapping Layout
                     ChallengeHeader(
-                        challengeType = if (forceStep > 0) ChallengeType.FORCE else getChallengeType(),
+                        challengeType = if (forceStep > 0) ChallengeType.COMBO else getChallengeType(),
+                        titleOverride = if (forceStep > 0) "${ComboCatalog.byId(comboId)?.name ?: "Combo"}  (step $forceStep/${comboSteps.size})" else null,
                         currentStage = if (forceStep > 0) forceStep else stage,
-                        totalStages = if (forceStep > 0) 3 else getTotalStages(),
-                        stepTitles = if (forceStep > 0) listOf("Body", "Mind", "QR") else listOf("Low", "Moderate", "Difficult"),
+                        totalStages = if (forceStep > 0) comboSteps.size else getTotalStages(),
+                        stepTitles = if (forceStep > 0) comboSteps.map { it.role.label } else listOf("Low", "Moderate", "Difficult"),
                         remainingSec = remainingSec,
                         totalSec = totalSec,
                         progress = progress,
@@ -519,6 +540,7 @@ abstract class BaseChallengeActivity : ComponentActivity() {
 @Composable
 fun ChallengeHeader(
     challengeType: ChallengeType,
+    titleOverride: String? = null,
     currentStage: Int,
     totalStages: Int = 3,
     stepTitles: List<String> = listOf("Low", "Moderate", "Difficult"),
@@ -551,7 +573,7 @@ fun ChallengeHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = challengeType.displayName,
+                    text = titleOverride ?: challengeType.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary,
@@ -627,27 +649,15 @@ fun ChallengeHeader(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    StageStepItem(
-                        stageNumber = 1,
-                        title = stepTitles[0],
-                        isCurrent = currentStage == 1,
-                        isPassed = currentStage > 1,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StageStepItem(
-                        stageNumber = 2,
-                        title = stepTitles[1],
-                        isCurrent = currentStage == 2,
-                        isPassed = currentStage > 2,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StageStepItem(
-                        stageNumber = 3,
-                        title = stepTitles[2],
-                        isCurrent = currentStage == 3,
-                        isPassed = currentStage > 3,
-                        modifier = Modifier.weight(1f)
-                    )
+                    stepTitles.forEachIndexed { index, title ->
+                        StageStepItem(
+                            stageNumber = index + 1,
+                            title = title,
+                            isCurrent = currentStage == index + 1,
+                            isPassed = currentStage > index + 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 

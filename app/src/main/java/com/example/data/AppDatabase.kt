@@ -20,6 +20,7 @@ class Converters {
             value.equals("WORD_SCRAMBLE", ignoreCase = true) -> ChallengeType.CARD_ARRANGEMENT
             value.equals("AUDIO", ignoreCase = true) -> ChallengeType.MATH
             value.equals("CAMERA", ignoreCase = true) -> ChallengeType.MATH
+            value.equals("FORCE", ignoreCase = true) -> ChallengeType.COMBO
             else -> ChallengeType.valueOf(value)
         }
     } catch (e: Exception) {
@@ -51,7 +52,16 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
-@Database(entities = [AlarmEntity::class], version = 5, exportSchema = false)
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE alarms ADD COLUMN nfcTag TEXT")
+        db.execSQL("ALTER TABLE alarms ADD COLUMN comboId INTEGER NOT NULL DEFAULT 0")
+        // The old "Force Mode" is now combo 4 (Shake, Math, QR)
+        db.execSQL("UPDATE alarms SET challengeType = 'COMBO', comboId = 4 WHERE challengeType = 'FORCE'")
+    }
+}
+
+@Database(entities = [AlarmEntity::class], version = 6, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
@@ -67,7 +77,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "force_alarm_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                 INSTANCE = instance
                 instance

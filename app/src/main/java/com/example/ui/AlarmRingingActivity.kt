@@ -55,6 +55,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.challenge.BaseChallengeActivity
+import com.example.challenge.ComboCatalog
+import androidx.lifecycle.lifecycleScope
+import com.example.data.AppDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
 import com.example.challenge.ImageArrangementChallengeActivity
@@ -139,27 +145,31 @@ class AlarmRingingActivity : ComponentActivity() {
         AlarmRingingService.silenceForChallenge(this)
 
         val type = try { ChallengeType.valueOf(challengeTypeStr) } catch (e: Exception) { ChallengeType.MATH }
-        val targetClass = when (type) {
-            ChallengeType.TYPING -> TypingChallengeActivity::class.java
-            ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
-            ChallengeType.CHARGER -> ChargerChallengeActivity::class.java
-            ChallengeType.CARD_ARRANGEMENT -> CardArrangementChallengeActivity::class.java
-            ChallengeType.PATTERN_LOCK -> PatternLockChallengeActivity::class.java
-            ChallengeType.ODD_ONE_OUT -> OddOneOutChallengeActivity::class.java
-            ChallengeType.REACTION_GAME -> ReactionGameChallengeActivity::class.java
-            ChallengeType.MATH -> MathChallengeActivity::class.java
-            ChallengeType.SHAKE -> ShakeChallengeActivity::class.java
-            ChallengeType.STEPS -> StepsChallengeActivity::class.java
-            ChallengeType.QR -> QrChallengeActivity::class.java
-            ChallengeType.FORCE -> ShakeChallengeActivity::class.java
-        }
 
-        val intent = Intent(this, targetClass).apply {
+        if (type == ChallengeType.COMBO) {
+            // The combo to run is stored with the alarm
+            lifecycleScope.launch {
+                val comboId = withContext(Dispatchers.IO) {
+                    AppDatabase.getDatabase(applicationContext).alarmDao().getAlarmById(alarmId)?.comboId ?: 0
+                }
+                val combo = ComboCatalog.byId(comboId) ?: ComboCatalog.byId(1)!!
+                launchChallenge(combo.steps.first().type, combo.id)
+            }
+        } else {
+            launchChallenge(type, 0)
+        }
+    }
+
+    private fun launchChallenge(type: ChallengeType, comboId: Int) {
+        val intent = Intent(this, ComboCatalog.activityClass(type)).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
             putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, alarmLabel)
             putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, challengeTypeStr)
             putExtra(AlarmReceiver.EXTRA_REF_LABELS, refLabels)
-            if (type == ChallengeType.FORCE) putExtra(BaseChallengeActivity.EXTRA_FORCE_STEP, 1)
+            if (comboId > 0) {
+                putExtra(BaseChallengeActivity.EXTRA_COMBO_ID, comboId)
+                putExtra(BaseChallengeActivity.EXTRA_FORCE_STEP, 1)
+            }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_FORWARD_RESULT
         }
         startActivity(intent)

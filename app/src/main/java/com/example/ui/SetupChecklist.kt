@@ -10,6 +10,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,7 +41,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
-private data class SetupIssue(val title: String, val intent: Intent)
+private data class SetupIssue(val title: String, val intent: Intent?, val permission: String? = null)
 
 private fun findSetupIssues(context: Context): List<SetupIssue> {
     val pkg = context.packageName
@@ -89,6 +91,20 @@ private fun findSetupIssues(context: Context): List<SetupIssue> {
         )
     }
 
+    if (Build.VERSION.SDK_INT >= 29 &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+    ) {
+        issues.add(
+            SetupIssue("Allow physical activity (real step counting, shaking will not count)", null, Manifest.permission.ACTIVITY_RECOGNITION)
+        )
+    }
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        issues.add(SetupIssue("Allow camera (QR scan, face check, squats, object photo)", null, Manifest.permission.CAMERA))
+    }
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        issues.add(SetupIssue("Allow microphone (speak the answer task)", null, Manifest.permission.RECORD_AUDIO))
+    }
+
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     if (!pm.isIgnoringBatteryOptimizations(pkg)) {
         issues.add(
@@ -115,6 +131,20 @@ fun PermissionSetupCard(modifier: Modifier = Modifier) {
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) {
+            // Asked before and refused: only the app settings page can still allow it
+            try {
+                context.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        refresh.intValue = refresh.intValue + 1
     }
 
     val issues = remember(refresh.intValue) { findSetupIssues(context) }
@@ -150,6 +180,11 @@ fun PermissionSetupCard(modifier: Modifier = Modifier) {
                             .padding(end = 8.dp)
                     )
                     TextButton(onClick = {
+                        val permission = issue.permission
+                        if (permission != null) {
+                            permissionLauncher.launch(permission)
+                            return@TextButton
+                        }
                         try {
                             context.startActivity(issue.intent)
                         } catch (e: Exception) {

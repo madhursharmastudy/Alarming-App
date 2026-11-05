@@ -52,6 +52,24 @@
             android:theme="@style/Theme.MyApplication" />
 
         <activity
+            android:name=".challenge.WalkMathChallengeActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.MyApplication" />
+
+        <activity
+            android:name=".challenge.TurnWalkChallengeActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.MyApplication" />
+
+        <activity
             android:name=".challenge.TypingChallengeActivity"
             android:exported="false"
             android:showWhenLocked="true"

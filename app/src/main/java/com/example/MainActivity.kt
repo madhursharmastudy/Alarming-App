@@ -122,6 +122,16 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import com.example.challenge.QrScannerView
 import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Nfc
+import androidx.compose.material.icons.filled.TurnLeft
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.example.challenge.ComboCatalog
 import com.example.challenge.BaseChallengeActivity
 import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
@@ -181,33 +191,25 @@ class MainActivity : ComponentActivity() {
                 MainAppScreen(
                     repository = repository,
                     onTestChallenge = { type -> launchChallengeDirectly(type) },
+                    onTestCombo = { id -> launchChallengeDirectly(ChallengeType.COMBO, id) },
                     onTestAlarmRing = { alarm -> triggerAlarmRingNow(alarm) }
                 )
             }
         }
     }
 
-    private fun launchChallengeDirectly(type: ChallengeType) {
-        val targetClass = when (type) {
-            ChallengeType.TYPING -> TypingChallengeActivity::class.java
-            ChallengeType.IMAGE_ARRANGEMENT -> ImageArrangementChallengeActivity::class.java
-            ChallengeType.CHARGER -> ChargerChallengeActivity::class.java
-            ChallengeType.CARD_ARRANGEMENT -> CardArrangementChallengeActivity::class.java
-            ChallengeType.PATTERN_LOCK -> PatternLockChallengeActivity::class.java
-            ChallengeType.ODD_ONE_OUT -> OddOneOutChallengeActivity::class.java
-            ChallengeType.REACTION_GAME -> ReactionGameChallengeActivity::class.java
-            ChallengeType.MATH -> MathChallengeActivity::class.java
-            ChallengeType.SHAKE -> ShakeChallengeActivity::class.java
-            ChallengeType.STEPS -> StepsChallengeActivity::class.java
-            ChallengeType.QR -> QrChallengeActivity::class.java
-            ChallengeType.FORCE -> ShakeChallengeActivity::class.java
-        }
-        val intent = Intent(this, targetClass).apply {
+    private fun launchChallengeDirectly(type: ChallengeType, comboId: Int = 0) {
+        val combo = if (type == ChallengeType.COMBO) ComboCatalog.byId(comboId) ?: ComboCatalog.byId(1) else null
+        val firstType = combo?.steps?.first()?.type ?: type
+        val intent = Intent(this, ComboCatalog.activityClass(firstType)).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
-            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, "Test ${type.displayName}")
+            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, "Test ${combo?.name ?: type.displayName}")
             putExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE, type.name)
-            putExtra(AlarmReceiver.EXTRA_REF_LABELS, "Cup, Sink, Bathroom, Tableware")
-            if (type == ChallengeType.FORCE) putExtra(BaseChallengeActivity.EXTRA_FORCE_STEP, 1)
+            putExtra(AlarmReceiver.EXTRA_REF_LABELS, "Cup, Bottle, Chair")
+            if (combo != null) {
+                putExtra(BaseChallengeActivity.EXTRA_COMBO_ID, combo.id)
+                putExtra(BaseChallengeActivity.EXTRA_FORCE_STEP, 1)
+            }
         }
         startActivity(intent)
     }
@@ -229,6 +231,7 @@ class MainActivity : ComponentActivity() {
 fun MainAppScreen(
     repository: AlarmRepository,
     onTestChallenge: (ChallengeType) -> Unit,
+    onTestCombo: (Int) -> Unit = {},
     onTestAlarmRing: (AlarmEntity) -> Unit
 ) {
     val alarms by repository.allAlarms.collectAsState(initial = emptyList())
@@ -291,7 +294,7 @@ fun MainAppScreen(
                 WakeStatsCard(modifier = Modifier.padding(bottom = 12.dp))
 
                 // Quick Challenge Tester Drawer / Row
-                QuickChallengeTestBar(onTestChallenge = onTestChallenge)
+                QuickChallengeTestBar(onTestChallenge = onTestChallenge, onTestCombo = onTestCombo)
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -439,7 +442,7 @@ fun HeaderBrandingSection() {
 }
 
 @Composable
-fun QuickChallengeTestBar(onTestChallenge: (ChallengeType) -> Unit) {
+fun QuickChallengeTestBar(onTestChallenge: (ChallengeType) -> Unit, onTestCombo: (Int) -> Unit = {}) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -460,8 +463,38 @@ fun QuickChallengeTestBar(onTestChallenge: (ChallengeType) -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(ChallengeType.values()) { type ->
+            items(ChallengeType.values().filter { it != ChallengeType.COMBO }) { type ->
                 ChallengeChip(type = type, onClick = { onTestChallenge(type) })
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Test a combo",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(ComboCatalog.all) { combo ->
+                Surface(
+                    onClick = { onTestCombo(combo.id) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.testTag("test_combo_${combo.id}")
+                ) {
+                    Text(
+                        text = "C${combo.id} ${combo.name}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     }
@@ -481,7 +514,15 @@ fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
         ChallengeType.SHAKE -> Icons.Default.PhoneAndroid
         ChallengeType.STEPS -> Icons.Default.Timer
         ChallengeType.QR -> Icons.Default.QrCode
-        ChallengeType.FORCE -> Icons.Default.Bolt
+        ChallengeType.WALK_MATH -> Icons.Default.DirectionsWalk
+        ChallengeType.TURN_WALK -> Icons.Default.TurnLeft
+        ChallengeType.FACE_CHECK -> Icons.Default.Face
+        ChallengeType.SQUAT -> Icons.Default.FitnessCenter
+        ChallengeType.VOICE_MATH -> Icons.Default.Mic
+        ChallengeType.LIGHT -> Icons.Default.LightMode
+        ChallengeType.OBJECT_PHOTO -> Icons.Default.CameraAlt
+        ChallengeType.NFC_TAP -> Icons.Default.Nfc
+        ChallengeType.COMBO -> Icons.Default.Bolt
     }
 
     Surface(
@@ -569,7 +610,11 @@ fun AlarmCardItem(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = if (alarm.challengeType == ChallengeType.QR) alarm.challengeType.displayName else "3-Stage ${alarm.challengeType.displayName}",
+                            text = when (alarm.challengeType) {
+                                ChallengeType.QR -> alarm.challengeType.displayName
+                                ChallengeType.COMBO -> "Combo: ${ComboCatalog.byId(alarm.comboId)?.name ?: "Gentle Start"}"
+                                else -> "3-Stage ${alarm.challengeType.displayName}"
+                            },
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -662,6 +707,11 @@ fun AddEditAlarmSheet(
     var selectedMinute by remember { mutableIntStateOf(initialAlarm?.minute ?: ((cal.get(Calendar.MINUTE) + 2) % 60)) }
     var label by remember { mutableStateOf(initialAlarm?.label ?: "Wake Up Routine") }
     var selectedChallengeType by remember { mutableStateOf(initialAlarm?.challengeType ?: ChallengeType.MATH) }
+    var comboId by remember { mutableIntStateOf(initialAlarm?.comboId?.takeIf { it > 0 } ?: 1) }
+    val selectedCombo = ComboCatalog.byId(comboId)
+    val needsQr = selectedChallengeType == ChallengeType.QR ||
+        (selectedChallengeType == ChallengeType.COMBO && selectedCombo?.needsQr == true)
+    val sheetScroll = rememberScrollState()
     var selectedDays by remember { mutableIntStateOf(initialAlarm?.daysOfWeek ?: 127) }
     var refLabels by remember { mutableStateOf(initialAlarm?.referenceLabels ?: "") }
     val editorContext = LocalContext.current
@@ -720,6 +770,7 @@ fun AddEditAlarmSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(sheetScroll)
                 .padding(horizontal = 20.dp, vertical = 12.dp)
                 .navigationBarsPadding()
         ) {
@@ -818,7 +869,7 @@ fun AddEditAlarmSheet(
             Spacer(modifier = Modifier.height(14.dp))
 
             // Challenge Type Selection
-            Text("Select 3-Stage Challenge", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text("Select Challenge", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(6.dp))
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -841,7 +892,49 @@ fun AddEditAlarmSheet(
                 }
             }
 
-            if (selectedChallengeType == ChallengeType.QR || selectedChallengeType == ChallengeType.FORCE) {
+            if (selectedChallengeType == ChallengeType.COMBO) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Choose a combo (the tasks run one after another)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                ComboCatalog.all.forEach { combo ->
+                    val selected = combo.id == comboId
+                    Surface(
+                        onClick = { comboId = combo.id },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                            .testTag("select_combo_${combo.id}")
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(combo.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(combo.level, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                text = combo.steps.joinToString("  \u2192  ") { it.type.displayName },
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Force ${combo.force}/5  \u2022  ${combo.note}",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (needsQr) {
                 val registeredQr = qrCode
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("Your QR / Barcode", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -878,7 +971,7 @@ fun AddEditAlarmSheet(
             // Save Action Button
             Button(
                 onClick = {
-                    if ((selectedChallengeType == ChallengeType.QR || selectedChallengeType == ChallengeType.FORCE) && qrCode.isNullOrBlank()) {
+                    if (needsQr && qrCode.isNullOrBlank()) {
                         Toast.makeText(editorContext, "Please register your QR first", Toast.LENGTH_LONG).show()
                         return@Button
                     }
@@ -891,7 +984,8 @@ fun AddEditAlarmSheet(
                         daysOfWeek = selectedDays,
                         challengeType = selectedChallengeType,
                         referenceLabels = refLabels,
-                        qrCode = qrCode
+                        qrCode = qrCode,
+                        comboId = if (selectedChallengeType == ChallengeType.COMBO) comboId else 0
                     )
                     onSave(entity)
                 },

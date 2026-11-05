@@ -1,5 +1,6 @@
 package com.example.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -16,6 +17,9 @@ data class AlarmEntity(
     val referencePhotoPath: String? = null,
     val referenceLabels: String? = null,
     val qrCode: String? = null, // Registered QR / barcode value for the QR challenge
+    val nfcTag: String? = null, // Registered NFC tag id for the NFC challenge
+    @ColumnInfo(defaultValue = "0")
+    val comboId: Int = 0, // Which combo runs when challengeType == COMBO
     val vibrate: Boolean = true,
     val escalatingVolume: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()

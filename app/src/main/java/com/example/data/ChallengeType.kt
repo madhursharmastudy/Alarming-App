@@ -12,5 +12,13 @@ enum class ChallengeType(val displayName: String, val iconDescription: String) {
     SHAKE("Shake Device", "High-energy device motion"),
     STEPS("Walk Steps", "Physical steps tracking"),
     QR("QR Code Scan", "Scan custom QR / Barcode"),
-    FORCE("Force Mode", "Step 1 Shake (body), step 2 Math (mind), step 3 scan your QR")
+    WALK_MATH("Walk the Math", "Solve a sum, then walk that many steps"),
+    TURN_WALK("Turn & Walk", "Follow walk and turn instructions"),
+    FACE_CHECK("Face Check", "Blink and smile at the front camera"),
+    SQUAT("Squats (camera)", "Do squats in front of the front camera"),
+    VOICE_MATH("Speak the Answer", "Say the answer of a sum out loud"),
+    LIGHT("Find the Light", "Bring the phone to bright light"),
+    OBJECT_PHOTO("Object Photo", "Show a chosen object to the camera"),
+    NFC_TAP("NFC Tag Tap", "Touch your NFC tag with the phone"),
+    COMBO("Combos", "Several tasks in a row: body, mind, place")
 }
