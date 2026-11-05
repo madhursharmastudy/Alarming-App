@@ -111,6 +111,9 @@ class AlarmRingingActivity : ComponentActivity() {
         softWake = SoftWakeBrightness(this)
         softWake.start()
 
+        // Once the full-screen alarm is showing, the notification can become small and quiet
+        window.decorView.postDelayed({ AlarmRingingService.onScreenShown(this) }, 1500L)
+
         setContent {
             // Always dark at wake-up time: a bright white screen is hard on sleepy eyes
             MyApplicationTheme(forceDark = true) {

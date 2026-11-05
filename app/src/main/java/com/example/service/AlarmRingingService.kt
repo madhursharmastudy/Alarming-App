@@ -39,12 +39,15 @@ class AlarmRingingService : Service() {
 
     companion object {
         const val CHANNEL_ID = "aurum_alarm_ringing_channel"
+        // Quiet channel: used once the alarm screen is already showing (no popup, no sound, small)
+        const val QUIET_CHANNEL_ID = "aurum_alarm_active_channel"
         const val NOTIFICATION_ID = 9991
 
         const val ACTION_START_RINGING = "com.example.service.ACTION_START_RINGING"
         const val ACTION_SILENCE_FOR_CHALLENGE = "com.example.service.ACTION_SILENCE_FOR_CHALLENGE"
         const val ACTION_RESUME_ALARM = "com.example.service.ACTION_RESUME_ALARM"
         const val ACTION_STOP_RINGING = "com.example.service.ACTION_STOP_RINGING"
+        const val ACTION_SCREEN_SHOWN = "com.example.service.ACTION_SCREEN_SHOWN"
 
         const val EXTRA_ALARM_ID = "extra_alarm_id"
         const val EXTRA_ALARM_LABEL = "extra_alarm_label"
@@ -87,6 +90,20 @@ class AlarmRingingService : Service() {
 
         @Volatile
         private var reSilenceUsed = false
+
+        // True once the full-screen alarm/challenge screen is visible: the notification then
+        // becomes small and quiet (it is only needed to keep the alarm service alive).
+        @Volatile
+        private var screenShown = false
+
+        fun onScreenShown(context: Context) {
+            if (!isServiceRunning) return
+            screenShown = true
+            val intent = Intent(context, AlarmRingingService::class.java).apply {
+                action = ACTION_SCREEN_SHOWN
+            }
+            context.startService(intent)
+        }
 
         // When the current ringing session started (used by the soft-wake brightness ramp)
         @Volatile
@@ -204,6 +221,12 @@ class AlarmRingingService : Service() {
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.notify(NOTIFICATION_ID, buildNotification(isSilenced = true))
             }
+            ACTION_SCREEN_SHOWN -> {
+                if (isServiceRunning) {
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.notify(NOTIFICATION_ID, buildNotification(isSilenced = isSilenced))
+                }
+            }
             ACTION_RESUME_ALARM -> {
                 isSilenced = false
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -216,6 +239,7 @@ class AlarmRingingService : Service() {
                 isSilenced = false
                 penaltyActive = false
                 reSilenceUsed = false
+                screenShown = false
                 ringStartTime = 0L
                 stopBackupHeartbeat()
                 if (finishedAlarmId > 0) {
@@ -376,16 +400,23 @@ class AlarmRingingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = if (isSilenced) "Challenge in Progress..." else "Aurum Alarm Ringing!"
-        val contentText = if (isSilenced) "Complete the challenge to stop the alarm" else "$currentAlarmLabel - Tap to start challenge"
+        // Quiet once the alarm screen is on display (or the alarm is silenced for a challenge)
+        val quiet = isSilenced || screenShown
+        val title = if (quiet) "Alarm active" else "Alarm ringing!"
+        val contentText = when {
+            isSilenced -> "Complete the challenge to stop the alarm"
+            screenShown -> "Finish the challenge on screen"
+            else -> "$currentAlarmLabel - Tap to start challenge"
+        }
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, if (quiet) QUIET_CHANNEL_ID else CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(contentText)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(if (quiet) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MAX)
+            .setSilent(quiet)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(if (quiet) NotificationCompat.VISIBILITY_PRIVATE else NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(fullScreenPendingIntent)
@@ -393,7 +424,7 @@ class AlarmRingingService : Service() {
             .setOnlyAlertOnce(true)
 
         // Only the first (ringing) notification may open the full-screen alarm
-        if (!isSilenced) {
+        if (!quiet) {
             builder.setFullScreenIntent(fullScreenPendingIntent, true)
         }
         return builder.build()
@@ -413,6 +444,19 @@ class AlarmRingingService : Service() {
             }
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+
+            val quietChannel = NotificationChannel(
+                QUIET_CHANNEL_ID,
+                "Alarm active (quiet)",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Small silent notification while the alarm screen is showing"
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            }
+            notificationManager.createNotificationChannel(quietChannel)
         }
     }
 
@@ -422,6 +466,7 @@ class AlarmRingingService : Service() {
         isSilenced = false
         penaltyActive = false
         reSilenceUsed = false
+        screenShown = false
         stopBackupHeartbeat()
         if (currentAlarmId > 0) {
             // Normal stop: backup no longer needed. If the process is killed, onDestroy never

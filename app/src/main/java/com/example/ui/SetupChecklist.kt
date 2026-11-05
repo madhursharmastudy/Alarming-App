@@ -80,6 +80,15 @@ private fun findSetupIssues(context: Context): List<SetupIssue> {
         }
     }
 
+    if (!Settings.canDrawOverlays(context)) {
+        issues.add(
+            SetupIssue(
+                "Allow display over other apps (alarm covers the whole screen)",
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$pkg"))
+            )
+        )
+    }
+
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     if (!pm.isIgnoringBatteryOptimizations(pkg)) {
         issues.add(
