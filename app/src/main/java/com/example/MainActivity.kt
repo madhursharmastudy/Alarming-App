@@ -132,6 +132,12 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.example.challenge.ComboCatalog
+import android.app.Activity
+import android.content.ContextWrapper
+import android.nfc.NfcAdapter
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.DisposableEffect
 import com.example.challenge.BaseChallengeActivity
 import com.example.challenge.CardArrangementChallengeActivity
 import com.example.challenge.ChargerChallengeActivity
@@ -711,6 +717,12 @@ fun AddEditAlarmSheet(
     val selectedCombo = ComboCatalog.byId(comboId)
     val needsQr = selectedChallengeType == ChallengeType.QR ||
         (selectedChallengeType == ChallengeType.COMBO && selectedCombo?.needsQr == true)
+    val needsNfc = selectedChallengeType == ChallengeType.NFC_TAP ||
+        (selectedChallengeType == ChallengeType.COMBO && selectedCombo?.needsNfc == true)
+    val needsObject = selectedChallengeType == ChallengeType.OBJECT_PHOTO ||
+        (selectedChallengeType == ChallengeType.COMBO && selectedCombo?.needsObject == true)
+    var nfcTag by remember { mutableStateOf(initialAlarm?.nfcTag) }
+    var showNfcDialog by remember { mutableStateOf(false) }
     val sheetScroll = rememberScrollState()
     var selectedDays by remember { mutableIntStateOf(initialAlarm?.daysOfWeek ?: 127) }
     var refLabels by remember { mutableStateOf(initialAlarm?.referenceLabels ?: "") }
@@ -725,6 +737,37 @@ fun AddEditAlarmSheet(
         } else {
             Toast.makeText(editorContext, "Camera permission is needed to scan your QR", Toast.LENGTH_LONG).show()
         }
+    }
+
+    if (showNfcDialog) {
+        val nfcActivity = editorContext.findActivity()
+        DisposableEffect(Unit) {
+            val nfcAdapter = NfcAdapter.getDefaultAdapter(editorContext)
+            if (nfcActivity != null && nfcAdapter != null) {
+                nfcAdapter.enableReaderMode(
+                    nfcActivity,
+                    NfcAdapter.ReaderCallback { tag ->
+                        val id = tag.id.joinToString("") { "%02X".format(it) }
+                        nfcActivity.runOnUiThread {
+                            nfcTag = id
+                            showNfcDialog = false
+                        }
+                    },
+                    NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
+                        NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V,
+                    null
+                )
+            }
+            onDispose {
+                if (nfcActivity != null && nfcAdapter != null) nfcAdapter.disableReaderMode(nfcActivity)
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showNfcDialog = false },
+            title = { Text("Register your NFC tag") },
+            text = { Text("Hold the back of your phone against the NFC tag now.") },
+            confirmButton = { TextButton(onClick = { showNfcDialog = false }) { Text("Cancel") } }
+        )
     }
 
     if (showQrScanner) {
@@ -966,6 +1009,52 @@ fun AddEditAlarmSheet(
                 }
             }
 
+            if (needsNfc) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Your NFC tag", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (nfcTag.isNullOrBlank()) {
+                        "Not registered yet. Stick an NFC tag in another room (like the bathroom) and touch it here once."
+                    } else {
+                        "Registered tag: ${nfcTag}"
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = {
+                        val nfcAdapter = NfcAdapter.getDefaultAdapter(editorContext)
+                        if (nfcAdapter == null) {
+                            Toast.makeText(editorContext, "This phone has no NFC", Toast.LENGTH_LONG).show()
+                        } else if (!nfcAdapter.isEnabled) {
+                            Toast.makeText(editorContext, "Switch NFC on in the phone settings first", Toast.LENGTH_LONG).show()
+                        } else {
+                            showNfcDialog = true
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("register_nfc_button")
+                ) {
+                    Text(if (nfcTag.isNullOrBlank()) "Touch & Register NFC Tag" else "Touch Again to Change")
+                }
+            }
+
+            if (needsObject) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = refLabels,
+                    onValueChange = { refLabels = it },
+                    label = { Text("Object(s) to show the camera") },
+                    placeholder = { Text("bottle, cup, shoe, plant, chair, book, bag") },
+                    supportingText = { Text("Everyday objects work best. Separate several with commas.") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("object_labels_input")
+                )
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Save Action Button
@@ -973,6 +1062,14 @@ fun AddEditAlarmSheet(
                 onClick = {
                     if (needsQr && qrCode.isNullOrBlank()) {
                         Toast.makeText(editorContext, "Please register your QR first", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+                    if (needsNfc && nfcTag.isNullOrBlank()) {
+                        Toast.makeText(editorContext, "Please register your NFC tag first", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+                    if (needsObject && refLabels.isBlank()) {
+                        Toast.makeText(editorContext, "Please type which object to show", Toast.LENGTH_LONG).show()
                         return@Button
                     }
                     val entity = AlarmEntity(
@@ -985,6 +1082,7 @@ fun AddEditAlarmSheet(
                         challengeType = selectedChallengeType,
                         referenceLabels = refLabels,
                         qrCode = qrCode,
+                        nfcTag = nfcTag,
                         comboId = if (selectedChallengeType == ChallengeType.COMBO) comboId else 0
                     )
                     onSave(entity)
@@ -999,4 +1097,14 @@ fun AddEditAlarmSheet(
             }
         }
     }
+}
+
+// Finds the Activity behind a Context (needed for NFC reader mode inside the bottom sheet)
+private fun android.content.Context.findActivity(): Activity? {
+    var current: android.content.Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
 }

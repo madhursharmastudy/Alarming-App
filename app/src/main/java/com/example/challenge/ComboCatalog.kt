@@ -88,8 +88,8 @@ object ComboCatalog {
         ChallengeType.SQUAT -> SquatChallengeActivity::class.java
         ChallengeType.VOICE_MATH -> VoiceMathChallengeActivity::class.java
         ChallengeType.LIGHT -> LightChallengeActivity::class.java
-        ChallengeType.OBJECT_PHOTO -> MathChallengeActivity::class.java
-        ChallengeType.NFC_TAP -> QrChallengeActivity::class.java
+        ChallengeType.OBJECT_PHOTO -> ObjectPhotoChallengeActivity::class.java
+        ChallengeType.NFC_TAP -> NfcTapChallengeActivity::class.java
         ChallengeType.COMBO -> MathChallengeActivity::class.java // never used directly
     }
 }
