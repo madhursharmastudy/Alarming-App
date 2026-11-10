@@ -49,7 +49,9 @@ private val AurumDarkColorScheme = darkColorScheme(
 private val AurumLightColorScheme = lightColorScheme(
     primary = AurumLightAccent,
     onPrimary = Color.White,
-    X,
+    primaryContainer = Color(0xFFD2E6FF),
+    onPrimaryContainer = Color(0xFF00213F),
+    secondary = AurumLightSecondary,
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFCDEFF5),
     onSecondaryContainer = Color(0xFF04222B),
