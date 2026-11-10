@@ -49,6 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import com.example.ui.theme.OceanBrush
+import com.example.ui.theme.OceanCyan
+import com.example.ui.theme.OceanGradientButton
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -83,7 +87,7 @@ import java.util.Locale
 class AlarmRingingActivity : ComponentActivity() {
 
     private var alarmId: Int = -1
-    private var alarmLabel: String = "Aurum Alarm"
+    private var alarmLabel: String = "Force Alarm"
     private var challengeTypeStr: String = ChallengeType.MATH.name
     private var refLabels: String? = null
     private lateinit var softWake: SoftWakeBrightness
@@ -104,7 +108,7 @@ class AlarmRingingActivity : ComponentActivity() {
         )
 
         alarmId = intent.getIntExtra(AlarmReceiver.EXTRA_ALARM_ID, -1)
-        alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Aurum Alarm"
+        alarmLabel = intent.getStringExtra(AlarmReceiver.EXTRA_ALARM_LABEL) ?: "Force Alarm"
         challengeTypeStr = intent.getStringExtra(AlarmReceiver.EXTRA_CHALLENGE_TYPE) ?: ChallengeType.MATH.name
         refLabels = intent.getStringExtra(AlarmReceiver.EXTRA_REF_LABELS)
 
@@ -186,17 +190,16 @@ fun AlarmRingingScreen(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.98f,
-        targetValue = 1.02f,
+        initialValue = 0.97f,
+        targetValue = 1.03f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2000),
+            animation = tween(1600),
             repeatMode = RepeatMode.Reverse
         ),
         label = "alarmPulse"
     )
 
-    val timeFormat = SimpleDateFormat("h:mm", Locale.getDefault())
-    val amPmFormat = SimpleDateFormat("a", Locale.getDefault())
+    val timeFormat = SimpleDateFormat("hh:mm", Locale.getDefault())
     val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val now = Date()
 
@@ -209,188 +212,123 @@ fun AlarmRingingScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: Lock Pill
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(36.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Locked",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (challengeType == ChallengeType.CHARGER || challengeType == ChallengeType.QR) "LOCKED: ACTION REQUIRED" else "LOCKED: 3-STAGE DISMISSAL",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Central Alarm Clock Visual
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                val totalH = maxHeight
-                val iconBoxSize = minOf(totalH * 0.28f, 110.dp).coerceAtLeast(60.dp)
-                val clockSize = if (totalH < 300.dp) 38.sp else 48.sp
-                val amPmSize = if (totalH < 300.dp) 16.sp else 20.sp
+                val small = maxHeight < 440.dp
+                val ringSize = minOf(maxHeight * 0.42f, 250.dp).coerceAtLeast(120.dp)
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(iconBoxSize)
-                            .scale(pulseScale)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                            .border(2.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.NotificationsActive,
-                            contentDescription = "Aurum Alarm Bell",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(iconBoxSize * 0.52f)
+                    Text(
+                        text = "Rise and shine",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = timeFormat.format(now),
+                        fontSize = if (small) 52.sp else 72.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = dateFormat.format(now),
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (alarmLabel.isNotBlank()) {
+                        Text(
+                            text = alarmLabel,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = OceanCyan,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(if (small) 10.dp else 20.dp))
 
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = timeFormat.format(now),
-                            fontSize = clockSize,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
+                    Box(
+                        modifier = Modifier
+                            .size(ringSize)
+                            .scale(pulseScale)
+                            .clip(CircleShape)
+                            .background(Color(0xFF0D2442)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(ringSize * 0.82f)
+                                .clip(CircleShape)
+                                .background(Color(0xFF0A3A58)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(ringSize * 0.64f)
+                                    .clip(CircleShape)
+                                    .background(OceanBrush),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.NotificationsActive,
+                                    contentDescription = "Alarm bell",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(ringSize * 0.28f)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = amPmFormat.format(now),
-                            fontSize = amPmSize,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            text = "No snooze \u00B7 No dismiss",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
-                    Text(
-                        text = dateFormat.format(now),
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = alarmLabel,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1
-                    )
                 }
             }
 
-            // Challenge Requirement Info Card & Action Button
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(16.dp),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "REQUIRED CHALLENGE",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = challengeType.displayName,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (challengeType == ChallengeType.CHARGER || challengeType == ChallengeType.QR) "Physical Sensor Action • Auto-Silences on Start" else "3-Stage Progressive • Auto-Silences on Start",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
-                }
-
+                Text(
+                    text = "Task: ${challengeType.displayName}",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Button(
+                OceanGradientButton(
+                    text = "Start task",
                     onClick = onStartChallenge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("start_challenge_button"),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "I'm Up! Start Challenge (Silences Alarm)",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.Default.ArrowForward,
-                            contentDescription = "Start",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+                    modifier = Modifier.testTag("start_challenge_button")
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

@@ -1,5 +1,7 @@
 package com.example.challenge
 
+import androidx.compose.ui.graphics.Color
+import com.example.ui.theme.OceanBrush
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -267,12 +269,12 @@ fun MathScreen(
                     .fillMaxWidth()
                     .height(equationH)
                     .padding(horizontal = 4.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
                 border = CardDefaults.outlinedCardBorder().copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -285,9 +287,9 @@ fun MathScreen(
                 ) {
                     Text(
                         text = equation,
-                        fontSize = if (equationH < 100.dp) 24.sp else 30.sp,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = if (equationH < 100.dp) 30.sp else 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
                     )
 
@@ -298,9 +300,9 @@ fun MathScreen(
                         modifier = Modifier
                             .fillMaxWidth(0.65f)
                             .height(if (equationH < 100.dp) 32.dp else 40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp))
                             .padding(horizontal = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -344,14 +346,14 @@ fun MathKeypad(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         for (row in keys) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 for (key in row) {
                     val isAction = key == "DEL" || key == "OK"
@@ -364,20 +366,18 @@ fun MathKeypad(
                     }
 
                     val txtColor = when {
-                        isOk -> MaterialTheme.colorScheme.onPrimary
-                        else -> MaterialTheme.colorScheme.primary
+                        isOk -> Color.White
+                        else -> MaterialTheme.colorScheme.onSurface
                     }
 
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(btnColor)
-                            .border(
-                                width = 1.dp,
-                                color = if (isOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                shape = RoundedCornerShape(10.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .then(
+                                if (isOk) Modifier.background(OceanBrush)
+                                else Modifier.background(MaterialTheme.colorScheme.surface)
                             )
                             .clickable { onKeyClick(key) }
                             .testTag("math_key_$key"),

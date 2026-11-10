@@ -115,32 +115,22 @@ class StepsChallengeActivity : BaseChallengeActivity() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Stage Goal Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Stage $stage: Physical Walking Routine",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Stand up and walk around the room with your phone.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                    )
-                }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Walk $target steps!",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Stage $stage: stand up and walk around with your phone.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            // Big Step Progress Ring
+            // Big step progress ring
             Box(
                 modifier = Modifier.size(240.dp),
                 contentAlignment = Alignment.Center
@@ -149,7 +139,7 @@ class StepsChallengeActivity : BaseChallengeActivity() {
                     progress = { progress },
                     modifier = Modifier.fillMaxSize(),
                     strokeWidth = 14.dp,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = com.example.ui.theme.OceanCyan,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
 
@@ -160,38 +150,37 @@ class StepsChallengeActivity : BaseChallengeActivity() {
                     Icon(
                         imageVector = Icons.Default.DirectionsWalk,
                         contentDescription = "Steps",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(54.dp)
+                        tint = com.example.ui.theme.OceanCyan,
+                        modifier = Modifier.size(44.dp)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "$steps / $target",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
+                        text = "$steps",
+                        fontSize = 56.sp,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "STEPS WALKED",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        text = "/ $target",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // Step Button for quick test/emulator
-            Button(
+            Text(
+                text = "Keep walking around",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Step button for quick test / emulator
+            com.example.ui.theme.OceanGradientButton(
+                text = "Simulate step (+1)",
+                icon = Icons.Default.DirectionsWalk,
                 onClick = { recordStep() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("step_simulator_button"),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(Icons.Default.DirectionsWalk, contentDescription = "Walk Step")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Simulate Step (+1)", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.testTag("step_simulator_button")
+            )
         }
     }
 }

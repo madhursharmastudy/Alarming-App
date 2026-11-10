@@ -73,6 +73,11 @@ import com.example.ui.TestExitButton
 import com.example.ui.WakeLevel
 import com.example.ui.WakeStats
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.OceanBrush
+import com.example.ui.theme.OceanCyan
+import com.example.ui.theme.OceanGradientButton
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -561,162 +566,117 @@ fun ChallengeHeader(
     pulseScale: Float,
     onReSilence: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-        ),
-        shape = RoundedCornerShape(14.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-            // Top Action Row with proper space distribution: title on left, action on right
-            Row(
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = titleOverride ?: challengeType.displayName,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(34.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = titleOverride ?: challengeType.displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    .weight(1f)
+                    .padding(end = 8.dp)
+            )
+
+            if (isLoud) {
+                Button(
+                    onClick = onReSilence,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp)
-                )
-
-                // Silence/Loud indicator button with fixed minimum width so text is never clipped
-                if (isLoud) {
-                    Button(
-                        onClick = onReSilence,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .height(32.dp)
-                            .widthIn(min = 96.dp)
-                            .testTag("re_silence_button")
-                    ) {
-                        Icon(Icons.Default.VolumeOff, contentDescription = "Silence", modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Re-Silence", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .height(32.dp)
-                            .widthIn(min = 72.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.VolumeOff,
-                            contentDescription = "Silent Mode",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Silent",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-
-            // Fixed 8dp spacing between header row and stage tabs
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Stage Progress Tabs
-            if (totalStages == 1) {
-                StageStepItem(
-                    stageNumber = 1,
-                    title = "Single Action",
-                    isCurrent = true,
-                    isPassed = false,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        .height(32.dp)
+                        .widthIn(min = 96.dp)
+                        .testTag("re_silence_button")
                 ) {
-                    stepTitles.forEachIndexed { index, title ->
-                        StageStepItem(
-                            stageNumber = index + 1,
-                            title = title,
-                            isCurrent = currentStage == index + 1,
-                            isPassed = currentStage > index + 1,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    Icon(Icons.Default.VolumeOff, contentDescription = "Silence", modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Re-Silence", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Timer Bar Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = "Timer",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${remainingSec}s left",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.scale(if (isUrgent || isLoud) pulseScale else 1.0f)
-                    )
-                }
+            } else if (totalStages > 1) {
                 Text(
-                    text = "Total ${totalSec}s",
-                    fontSize = 10.sp,
+                    text = "$currentStage / $totalStages",
+                    fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-            val progressColor by animateColorAsState(
-                targetValue = MaterialTheme.colorScheme.primary,
-                label = "progressColor"
-            )
-
-            LinearProgressIndicator(
-                progress = { progress },
+        // Time-left bar (gradient)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = progressColor,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(OceanBrush)
             )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = "Timer",
+                    tint = if (isUrgent) MaterialTheme.colorScheme.error else OceanCyan,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${remainingSec}s left",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isUrgent) MaterialTheme.colorScheme.error else OceanCyan,
+                    modifier = Modifier.scale(if (isUrgent || isLoud) pulseScale else 1.0f)
+                )
+            }
+            Text(
+                text = "Total ${totalSec}s",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (totalStages > 1) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                stepTitles.forEachIndexed { index, title ->
+                    StageStepItem(
+                        stageNumber = index + 1,
+                        title = title,
+                        isCurrent = currentStage == index + 1,
+                        isPassed = currentStage > index + 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
     }
 }
@@ -729,25 +689,25 @@ fun StageStepItem(
     isPassed: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val bgColor = when {
-        isPassed -> MaterialTheme.colorScheme.primary
-        isCurrent -> MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-    }
-
+    val shape = RoundedCornerShape(12.dp)
     val textColor = when {
-        isPassed -> MaterialTheme.colorScheme.onPrimary
-        else -> MaterialTheme.colorScheme.primary
+        isPassed -> Color.White
+        isCurrent -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-
-    val borderColor = if (isCurrent) MaterialTheme.colorScheme.primary else Color.Transparent
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(bgColor)
-            .border(width = if (isCurrent) 1.5.dp else 0.dp, color = borderColor, shape = RoundedCornerShape(6.dp))
-            .padding(vertical = 4.dp, horizontal = 4.dp),
+            .clip(shape)
+            .then(
+                when {
+                    isPassed -> Modifier.background(OceanBrush)
+                    isCurrent -> Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                    else -> Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                }
+            )
+            .then(if (isCurrent) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
+            .padding(vertical = 6.dp, horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -759,13 +719,13 @@ fun StageStepItem(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Passed",
                     tint = textColor,
-                    modifier = Modifier.size(11.dp)
+                    modifier = Modifier.size(12.dp)
                 )
                 Spacer(modifier = Modifier.width(2.dp))
             }
             Text(
                 text = "S$stageNumber: $title",
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor,
                 maxLines = 1
@@ -776,113 +736,115 @@ fun StageStepItem(
 
 @Composable
 fun ChallengeSuccessView(wakeSeconds: Int = 0, streak: Int = 0, onDismiss: () -> Unit) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .navigationBarsPadding(),
-        contentAlignment = Alignment.Center
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .padding(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-            ),
-            shape = RoundedCornerShape(20.dp),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)
-            ),
-            elevation = CardDefaults.cardElevation(6.dp)
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF0D2442)),
+                contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .size(68.dp)
+                        .size(180.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(Color(0xFF0A3A58)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Done",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "YOU ARE AWAKE",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "All 3 challenge stages completed successfully. Alarm is permanently turned off.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-
-                if (wakeSeconds > 0) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "You got up in ${WakeStats.formatDuration(wakeSeconds)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                    if (streak > 0) {
-                        Text(
-                            text = "Streak: $streak day${if (streak == 1) "" else "s"}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
+                    Box(
+                        modifier = Modifier
+                            .size(140.dp)
+                            .clip(CircleShape)
+                            .background(OceanBrush),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LightMode,
+                            contentDescription = "Done",
+                            tint = Color.White,
+                            modifier = Modifier.size(64.dp)
                         )
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-                Text(
-                    text = "Next: drink some water and get a little daylight.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+            Text(
+                text = "Good Morning!",
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Alarm turned off",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                SuccessStatTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.LocalFireDepartment,
+                    value = if (streak > 0) "$streak" else "0",
+                    label = "Day streak"
                 )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("dismiss_success_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text(
-                        text = "Dismiss & Good Morning",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                SuccessStatTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Timer,
+                    value = if (wakeSeconds > 0) WakeStats.formatDuration(wakeSeconds) else "--",
+                    label = "Time to wake"
+                )
             }
         }
+
+        OceanGradientButton(
+            text = "Done",
+            onClick = onDismiss,
+            modifier = Modifier.testTag("dismiss_success_button")
+        )
+    }
+}
+
+@Composable
+private fun SuccessStatTile(
+    modifier: Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: String,
+    label: String
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(vertical = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = OceanCyan, modifier = Modifier.size(26.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

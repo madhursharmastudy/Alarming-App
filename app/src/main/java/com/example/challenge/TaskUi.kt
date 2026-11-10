@@ -44,8 +44,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 fun TaskInfoCard(title: String, subtitle: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-        shape = RoundedCornerShape(18.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(28.dp)
     ) {
         Column(
             modifier = Modifier
@@ -55,17 +55,17 @@ fun TaskInfoCard(title: String, subtitle: String, modifier: Modifier = Modifier)
         ) {
             Text(
                 text = title,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = subtitle,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -77,7 +77,7 @@ fun CameraFrame(modifier: Modifier = Modifier, content: @Composable BoxScope.() 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(28.dp))
             .background(Color.Black),
         contentAlignment = Alignment.Center,
         content = content

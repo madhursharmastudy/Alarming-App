@@ -163,6 +163,17 @@ import com.example.ui.WakeStatsCard
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.graphics.Color
+import com.example.ui.theme.AppThemeMode
+import com.example.ui.theme.ThemePreferences
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -327,7 +338,7 @@ private fun greetingFor(hour: Int): String = when {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainAppScreen(
+fun MainTabsScreen(
     repository: AlarmRepository,
     onTestChallenge: (ChallengeType) -> Unit,
     onTestCombo: (Int) -> Unit = {},
@@ -339,7 +350,7 @@ fun MainAppScreen(
 
     var showAddSheet by remember { mutableStateOf(false) }
     var alarmToEdit by remember { mutableStateOf<AlarmEntity?>(null) }
-    var showTestTools by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(0) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
@@ -364,25 +375,57 @@ fun MainAppScreen(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                OceanGradientButton(
-                    text = "New alarm",
-                    icon = Icons.Default.Add,
-                    onClick = {
-                        alarmToEdit = null
-                        showAddSheet = true
-                    },
-                    modifier = Modifier.testTag("add_alarm_fab")
-                )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (tab == 0) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                    ) {
+                        OceanGradientButton(
+                            text = "New alarm",
+                            icon = Icons.Default.Add,
+                            onClick = {
+                                alarmToEdit = null
+                                showAddSheet = true
+                            },
+                            modifier = Modifier.testTag("add_alarm_fab")
+                        )
+                    }
+                }
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    tonalElevation = 0.dp
+                ) {
+                    listOf(
+                        Triple("Home", Icons.Default.Home, 0),
+                        Triple("Stats", Icons.Default.BarChart, 1),
+                        Triple("Settings", Icons.Default.Settings, 2)
+                    ).forEach { (name, icon, index) ->
+                        NavigationBarItem(
+                            selected = tab == index,
+                            onClick = { tab = index },
+                            icon = { Icon(imageVector = icon, contentDescription = name) },
+                            label = { Text(name) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = OceanCyan,
+                                selectedTextColor = OceanCyan,
+                                indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier.testTag("nav_$name")
+                        )
+                    }
+                }
             }
         }
     ) { innerPadding ->
-        LazyColumn(
+        if (tab == 1) {
+            StatsTab(padding = innerPadding)
+        } else if (tab == 2) {
+            SettingsTab(padding = innerPadding, onTestChallenge = onTestChallenge, onTestCombo = onTestCombo)
+        } else LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
@@ -434,25 +477,6 @@ fun MainAppScreen(
                 }
             }
 
-            // Streak, weekly summary and difficulty level
-            item { WakeStatsCard(modifier = Modifier.padding(top = 4.dp)) }
-
-            // Temporary testing tools (collapsed by default)
-            item {
-                Column {
-                    TextButton(onClick = { showTestTools = !showTestTools }) {
-                        Text(
-                            text = if (showTestTools) "Hide test tools" else "Show test tools",
-                            color = OceanCyan,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (showTestTools) {
-                        QuickChallengeTestBar(onTestChallenge = onTestChallenge, onTestCombo = onTestCombo)
-                    }
-                }
-            }
-
             item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
@@ -471,6 +495,229 @@ fun MainAppScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun MainAppScreen(
+    repository: AlarmRepository,
+    onTestChallenge: (ChallengeType) -> Unit,
+    onTestCombo: (Int) -> Unit = {},
+    onTestAlarmRing: (AlarmEntity) -> Unit
+) {
+    val context = LocalContext.current
+    val uiPrefs = remember { context.getSharedPreferences("force_alarm_ui", android.content.Context.MODE_PRIVATE) }
+    var showSplash by remember { mutableStateOf(!uiPrefs.getBoolean("splash_seen", false)) }
+
+    if (showSplash) {
+        SplashScreen(
+            onStart = {
+                uiPrefs.edit().putBoolean("splash_seen", true).apply()
+                showSplash = false
+            }
+        )
+    } else {
+        MainTabsScreen(
+            repository = repository,
+            onTestChallenge = onTestChallenge,
+            onTestCombo = onTestCombo,
+            onTestAlarmRing = onTestAlarmRing
+        )
+    }
+}
+
+@Composable
+fun SplashScreen(onStart: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Spacer(modifier = Modifier.height(1.dp))
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(240.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0D2442)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(196.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF0A3A58)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(156.dp)
+                                .clip(CircleShape)
+                                .background(OceanBrush),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Alarm,
+                                contentDescription = "Force Alarm",
+                                tint = Color.White,
+                                modifier = Modifier.size(72.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(
+                    text = "Force Alarm",
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "You have to get up. No snooze.",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            OceanGradientButton(
+                text = "Get started",
+                onClick = onStart,
+                modifier = Modifier.testTag("splash_start_button")
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatsTab(padding: PaddingValues) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(
+                text = "Stats",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+            )
+        }
+        item { WakeStatsCard() }
+    }
+}
+
+@Composable
+private fun SettingsTab(
+    padding: PaddingValues,
+    onTestChallenge: (ChallengeType) -> Unit,
+    onTestCombo: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    val themeMode by ThemePreferences.themeModeFlow.collectAsState()
+    var showTestTools by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(
+                text = "Settings",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+            )
+        }
+        item {
+            Text(
+                text = "Appearance",
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        items(AppThemeMode.values().toList()) { mode ->
+            val selected = mode == themeMode
+            val icon = when (mode) {
+                AppThemeMode.SYSTEM -> Icons.Default.PhoneAndroid
+                AppThemeMode.DARK -> Icons.Default.Bedtime
+                AppThemeMode.LIGHT -> Icons.Default.LightMode
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .then(
+                        if (selected) Modifier.background(OceanBrush)
+                        else Modifier.background(MaterialTheme.colorScheme.surface)
+                    )
+                    .clickable { ThemePreferences.setThemeMode(context, mode) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .testTag("theme_${mode.name}"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OceanIconTile(icon = icon, onGradient = selected)
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = mode.displayName,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+
+        item {
+            Text(
+                text = "Setup",
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+        item { PermissionSetupCard() }
+
+        item {
+            Column {
+                TextButton(onClick = { showTestTools = !showTestTools }) {
+                    Text(
+                        text = if (showTestTools) "Hide test tools" else "Show test tools",
+                        color = OceanCyan,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (showTestTools) {
+                    QuickChallengeTestBar(onTestChallenge = onTestChallenge, onTestCombo = onTestCombo)
+                }
+            }
+        }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
 

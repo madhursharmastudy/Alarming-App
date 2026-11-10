@@ -1,5 +1,6 @@
 package com.example.challenge
 
+import androidx.compose.ui.unit.sp
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -123,28 +124,19 @@ class QrChallengeActivity : BaseChallengeActivity() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "QR / Barcode Scan",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Get up, go to your registered QR code (for example in the bathroom) and scan it.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                    )
-                }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Scan your QR code",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "You must get out of bed. Go to your registered QR code (for example in the bathroom) and scan it.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -153,7 +145,7 @@ class QrChallengeActivity : BaseChallengeActivity() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(28.dp))
                     .background(Color.Black)
                     .testTag("qr_camera_preview"),
                 contentAlignment = Alignment.Center
@@ -167,6 +159,13 @@ class QrChallengeActivity : BaseChallengeActivity() {
                     CircularProgressIndicator()
                 }
             }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Point the camera at the QR code",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
