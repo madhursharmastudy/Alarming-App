@@ -163,6 +163,18 @@ import com.example.ui.WakeStatsCard
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.delay
+import com.example.ui.theme.OceanBrush
+import com.example.ui.theme.OceanCyan
+import com.example.ui.theme.OceanGradientButton
+import com.example.ui.theme.OceanIconTile
+import com.example.ui.theme.oceanSwitchColors
 
 class MainActivity : ComponentActivity() {
 
@@ -232,6 +244,87 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun challengeIconFor(type: ChallengeType): ImageVector = when (type) {
+    ChallengeType.TYPING -> Icons.Default.Keyboard
+    ChallengeType.IMAGE_ARRANGEMENT -> Icons.Default.GridOn
+    ChallengeType.CHARGER -> Icons.Default.Power
+    ChallengeType.CARD_ARRANGEMENT -> Icons.Default.GridOn
+    ChallengeType.PATTERN_LOCK -> Icons.Default.Lock
+    ChallengeType.ODD_ONE_OUT -> Icons.Default.Visibility
+    ChallengeType.REACTION_GAME -> Icons.Default.Speed
+    ChallengeType.MATH -> Icons.Default.Science
+    ChallengeType.SHAKE -> Icons.Default.PhoneAndroid
+    ChallengeType.STEPS -> Icons.Default.Timer
+    ChallengeType.QR -> Icons.Default.QrCode
+    ChallengeType.WALK_MATH -> Icons.Default.DirectionsWalk
+    ChallengeType.TURN_WALK -> Icons.Default.TurnLeft
+    ChallengeType.FACE_CHECK -> Icons.Default.Face
+    ChallengeType.SQUAT -> Icons.Default.FitnessCenter
+    ChallengeType.VOICE_MATH -> Icons.Default.Mic
+    ChallengeType.LIGHT -> Icons.Default.LightMode
+    ChallengeType.OBJECT_PHOTO -> Icons.Default.CameraAlt
+    ChallengeType.NFC_TAP -> Icons.Default.Nfc
+    ChallengeType.COMBO -> Icons.Default.Bolt
+}
+
+private fun timeLabel(alarm: AlarmEntity): String {
+    val h = if (alarm.hour == 0) 12 else if (alarm.hour > 12) alarm.hour - 12 else alarm.hour
+    return String.format("%02d:%02d %s", h, alarm.minute, if (alarm.hour < 12) "AM" else "PM")
+}
+
+private fun taskName(alarm: AlarmEntity): String =
+    if (alarm.challengeType == ChallengeType.COMBO) {
+        ComboCatalog.byId(alarm.comboId)?.name ?: "Combo"
+    } else {
+        alarm.challengeType.displayName
+    }
+
+private fun shortDays(alarm: AlarmEntity): String = when (alarm.daysOfWeek) {
+    127 -> "Every day"
+    62 -> "Mon\u2013Fri"
+    65 -> "Weekend"
+    0 -> "Once"
+    else -> {
+        val names = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+        (0..6).filter { (alarm.daysOfWeek and (1 shl it)) != 0 }.joinToString(", ") { names[it] }
+    }
+}
+
+// Minutes from `now` until the next time this alarm rings (null if it never rings again)
+private fun minutesUntilNext(alarm: AlarmEntity, now: Calendar): Long? {
+    for (offset in 0..7) {
+        val c = (now.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, offset)
+            set(Calendar.HOUR_OF_DAY, alarm.hour)
+            set(Calendar.MINUTE, alarm.minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (c.timeInMillis <= now.timeInMillis) continue
+        val dow = c.get(Calendar.DAY_OF_WEEK) - 1 // 0 = Sunday
+        if (alarm.daysOfWeek == 0 || (alarm.daysOfWeek and (1 shl dow)) != 0) {
+            return (c.timeInMillis - now.timeInMillis) / 60000L
+        }
+    }
+    return null
+}
+
+private fun formatTimeLeft(minutes: Long): String {
+    val h = minutes / 60
+    val m = minutes % 60
+    return when {
+        h >= 24 -> "${h / 24}d ${h % 24}h left"
+        h > 0 -> "${h}h ${m}m left"
+        else -> "${m}m left"
+    }
+}
+
+private fun greetingFor(hour: Int): String = when {
+    hour < 12 -> "Good morning"
+    hour < 17 -> "Good afternoon"
+    else -> "Good evening"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppScreen(
@@ -246,117 +339,121 @@ fun MainAppScreen(
 
     var showAddSheet by remember { mutableStateOf(false) }
     var alarmToEdit by remember { mutableStateOf<AlarmEntity?>(null) }
+    var showTestTools by remember { mutableStateOf(false) }
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000L)
+            nowMillis = System.currentTimeMillis()
+        }
+    }
+
+    val nextAlarm = remember(alarms, nowMillis) {
+        val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+        alarms
+            .filter { it.isEnabled }
+            .mapNotNull { a -> minutesUntilNext(a, cal)?.let { left -> a to left } }
+            .minByOrNull { it.second }
+    }
+    val greeting = remember(nowMillis) {
+        greetingFor(Calendar.getInstance().apply { timeInMillis = nowMillis }.get(Calendar.HOUR_OF_DAY))
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    alarmToEdit = null
-                    showAddSheet = true
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(18.dp),
+        bottomBar = {
+            Box(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .navigationBarsPadding()
-                    .testTag("add_alarm_fab")
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Alarm")
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("New Alarm", fontWeight = FontWeight.Bold)
-                }
+                OceanGradientButton(
+                    text = "New alarm",
+                    icon = Icons.Default.Add,
+                    onClick = {
+                        alarmToEdit = null
+                        showAddSheet = true
+                    },
+                    modifier = Modifier.testTag("add_alarm_fab")
+                )
             }
         }
     ) { innerPadding ->
-        BoxWithConstraints(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val isWide = maxWidth > 600.dp
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .widthIn(max = 700.dp)
-                    .align(Alignment.TopCenter)
-                    .padding(horizontal = 16.dp)
-            ) {
-                // Header Branding Section
-                HeaderBrandingSection()
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Shows only the permissions/settings that still need attention
-                PermissionSetupCard(modifier = Modifier.padding(bottom = 12.dp))
-
-                // Streak, weekly summary and difficulty level
-                WakeStatsCard(modifier = Modifier.padding(bottom = 12.dp))
-
-                // Quick Challenge Tester Drawer / Row
-                QuickChallengeTestBar(onTestChallenge = onTestChallenge, onTestCombo = onTestCombo)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Alarms List Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            item {
+                Column(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
                     Text(
-                        text = "Your Alarms (${alarms.size})",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
+                        text = greeting,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Next alarm",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            item { NextAlarmHeroCard(next = nextAlarm) }
 
-                if (alarms.isEmpty()) {
-                    EmptyAlarmsState(onAddClick = {
-                        alarmToEdit = null
-                        showAddSheet = true
-                    })
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(alarms, key = { it.id }) { alarm ->
-                            AlarmCardItem(
-                                alarm = alarm,
-                                onToggle = { enabled ->
-                                    coroutineScope.launch {
-                                        val updated = alarm.copy(isEnabled = enabled)
-                                        repository.updateAlarm(updated)
-                                        AlarmScheduler.scheduleAlarm(context, updated)
-                                    }
-                                },
-                                onDelete = {
-                                    coroutineScope.launch {
-                                        AlarmScheduler.cancelAlarm(context, alarm.id)
-                                        repository.deleteAlarm(alarm)
-                                    }
-                                },
-                                onTestRing = { onTestAlarmRing(alarm) }
-                            )
-                        }
-                        item {
-                            Spacer(modifier = Modifier.height(80.dp)) // Space for FAB
-                        }
+            // Shows only the permissions/settings that still need attention
+            item { PermissionSetupCard() }
+
+            if (alarms.isEmpty()) {
+                item { EmptyAlarmsState(onAddClick = { alarmToEdit = null; showAddSheet = true }) }
+            } else {
+                items(alarms, key = { it.id }) { alarm ->
+                    AlarmCardItem(
+                        alarm = alarm,
+                        onToggle = { enabled ->
+                            coroutineScope.launch {
+                                val updated = alarm.copy(isEnabled = enabled)
+                                repository.updateAlarm(updated)
+                                AlarmScheduler.scheduleAlarm(context, updated)
+                            }
+                        },
+                        onDelete = {
+                            coroutineScope.launch {
+                                AlarmScheduler.cancelAlarm(context, alarm.id)
+                                repository.deleteAlarm(alarm)
+                            }
+                        },
+                        onTestRing = { onTestAlarmRing(alarm) }
+                    )
+                }
+            }
+
+            // Streak, weekly summary and difficulty level
+            item { WakeStatsCard(modifier = Modifier.padding(top = 4.dp)) }
+
+            // Temporary testing tools (collapsed by default)
+            item {
+                Column {
+                    TextButton(onClick = { showTestTools = !showTestTools }) {
+                        Text(
+                            text = if (showTestTools) "Hide test tools" else "Show test tools",
+                            color = OceanCyan,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (showTestTools) {
+                        QuickChallengeTestBar(onTestChallenge = onTestChallenge, onTestCombo = onTestCombo)
                     }
                 }
             }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 
@@ -378,69 +475,42 @@ fun MainAppScreen(
 }
 
 @Composable
-fun HeaderBrandingSection() {
-    Card(
+fun NextAlarmHeroCard(next: Pair<AlarmEntity, Long>?) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .clip(RoundedCornerShape(32.dp))
+            .background(OceanBrush)
+            .padding(horizontal = 24.dp, vertical = 26.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Centered Responsive Application Icon
-            Box(
-                modifier = Modifier
-                    .size(68.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.force_alarm_logo),
-                    contentDescription = "Aurum Alarm Icon",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+        if (next != null) {
+            Column {
+                Text(
+                    text = timeLabel(next.first),
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${formatTimeLeft(next.second)} \u00B7 ${taskName(next.first)}",
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.92f)
                 )
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Aurum Alarm",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.error)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "3-STAGE",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                    }
-                }
+        } else {
+            Column {
                 Text(
-                    text = "Uncompromising wake-up alarms. Won't stop until 3 stages are cleared.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "No alarm set",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Tap New alarm to create one",
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.92f)
                 )
             }
         }
@@ -561,143 +631,96 @@ fun AlarmCardItem(
     onDelete: () -> Unit,
     onTestRing: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (alarm.isEnabled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = alarm.formatTime(),
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Black,
-                        color = if (alarm.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
-                    Text(
-                        text = alarm.label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+    var menuOpen by remember { mutableStateOf(false) }
+    val dim = if (alarm.isEnabled) 1f else 0.55f
 
-                Switch(
-                    checked = alarm.isEnabled,
-                    onCheckedChange = onToggle,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier.testTag("alarm_switch_${alarm.id}")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OceanIconTile(icon = challengeIconFor(alarm.challengeType))
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = timeLabel(alarm),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = dim)
+            )
+            Text(
+                text = "${shortDays(alarm)} \u00B7 ${taskName(alarm)}",
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = dim)
+            )
+        }
+        Box {
+            IconButton(
+                onClick = { menuOpen = true },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = when (alarm.challengeType) {
-                                ChallengeType.QR -> alarm.challengeType.displayName
-                                ChallengeType.COMBO -> "Combo: ${ComboCatalog.byId(alarm.comboId)?.name ?: "Gentle Start"}"
-                                else -> "3-Stage ${alarm.challengeType.displayName}"
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = alarm.daysFormatted(),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onTestRing,
-                        modifier = Modifier.size(36.dp).testTag("test_ring_btn_${alarm.id}")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Test Ring",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(36.dp).testTag("delete_alarm_btn_${alarm.id}")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete Alarm",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Test ring") },
+                    onClick = {
+                        menuOpen = false
+                        onTestRing()
+                    },
+                    modifier = Modifier.testTag("test_ring_btn_${alarm.id}")
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                        menuOpen = false
+                        onDelete()
+                    },
+                    modifier = Modifier.testTag("delete_alarm_btn_${alarm.id}")
+                )
             }
         }
+        Switch(
+            checked = alarm.isEnabled,
+            onCheckedChange = onToggle,
+            colors = oceanSwitchColors(),
+            modifier = Modifier.testTag("alarm_switch_${alarm.id}")
+        )
     }
 }
 
 @Composable
 fun EmptyAlarmsState(onAddClick: () -> Unit) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 40.dp),
-        contentAlignment = Alignment.Center
+            .padding(vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Outlined.Alarm,
-                contentDescription = "No Alarms",
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                modifier = Modifier.size(72.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No Alarms Scheduled",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Set an inescapable alarm with progressive 3-stage challenges",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = onAddClick,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Create First Alarm")
-            }
-        }
+        OceanIconTile(icon = Icons.Default.Alarm, size = 72.dp)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "No alarms yet",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Create an alarm that only stops when you are really awake",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -805,11 +828,20 @@ fun AddEditAlarmSheet(
         }
     }
 
+    var showPicker by remember { mutableStateOf(false) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.background
     ) {
+        if (showPicker) {
+            ChallengePickerContent(
+                selected = selectedChallengeType,
+                onSelect = { selectedChallengeType = it },
+                onConfirm = { showPicker = false }
+            )
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -818,121 +850,171 @@ fun AddEditAlarmSheet(
                 .navigationBarsPadding()
         ) {
             Text(
-                text = if (initialAlarm == null) "Set New Aurum Alarm" else "Edit Alarm",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface
+                text = if (initialAlarm == null) "Set alarm" else "Edit alarm",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Time Selector (Hour & Minute Wheel/Buttons)
-            Card(
+            // Big time picker: hour, minute and AM / PM
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(16.dp)
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val displayHour = if (selectedHour == 0) 12 else if (selectedHour > 12) selectedHour - 12 else selectedHour
-                    val isAm = selectedHour < 12
+                val displayHour = if (selectedHour == 0) 12 else if (selectedHour > 12) selectedHour - 12 else selectedHour
+                val isAm = selectedHour < 12
 
-                    // Hour
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("HOUR", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = {
-                                selectedHour = if (selectedHour == 0) 23 else selectedHour - 1
-                            }) { Text("▼", fontWeight = FontWeight.Bold) }
-                            Text(
-                                text = String.format("%02d", displayHour),
-                                fontSize = 34.sp,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            IconButton(onClick = {
-                                selectedHour = (selectedHour + 1) % 24
-                            }) { Text("▲", fontWeight = FontWeight.Bold) }
-                        }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(onClick = { selectedHour = (selectedHour + 1) % 24 }) {
+                        Text("\u25B2", color = OceanCyan, fontWeight = FontWeight.Bold)
                     }
-
-                    Text(":", fontSize = 34.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp))
-
-                    // Minute
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("MINUTE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = {
-                                selectedMinute = if (selectedMinute == 0) 59 else selectedMinute - 1
-                            }) { Text("▼", fontWeight = FontWeight.Bold) }
-                            Text(
-                                text = String.format("%02d", selectedMinute),
-                                fontSize = 34.sp,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            IconButton(onClick = {
-                                selectedMinute = (selectedMinute + 1) % 60
-                            }) { Text("▲", fontWeight = FontWeight.Bold) }
-                        }
+                    Text(
+                        text = String.format("%02d", displayHour),
+                        fontSize = 64.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    IconButton(onClick = { selectedHour = if (selectedHour == 0) 23 else selectedHour - 1 }) {
+                        Text("\u25BC", color = OceanCyan, fontWeight = FontWeight.Bold)
                     }
+                }
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = ":",
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(horizontal = 10.dp)
+                )
 
-                    // AM / PM Toggle
-                    Button(
-                        onClick = {
-                            selectedHour = if (isAm) (selectedHour + 12) % 24 else selectedHour - 12
-                        },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(if (isAm) "AM" else "PM", fontWeight = FontWeight.Bold)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(onClick = { selectedMinute = (selectedMinute + 1) % 60 }) {
+                        Text("\u25B2", color = OceanCyan, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        text = String.format("%02d", selectedMinute),
+                        fontSize = 64.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    IconButton(onClick = { selectedMinute = if (selectedMinute == 0) 59 else selectedMinute - 1 }) {
+                        Text("\u25BC", color = OceanCyan, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(18.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("AM", "PM").forEach { period ->
+                        val active = (period == "AM") == isAm
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .then(
+                                    if (active) Modifier.background(OceanBrush)
+                                    else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                                )
+                                .clickable {
+                                    if (period == "AM" && !isAm) selectedHour -= 12
+                                    if (period == "PM" && isAm) selectedHour += 12
+                                }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = period,
+                                fontWeight = FontWeight.Bold,
+                                color = if (active) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Repeat days (Mon..Sun). Bit 0 = Sunday, bit 1 = Monday ... bit 6 = Saturday
+            Text(
+                text = "Repeat",
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val dayLetters = listOf("M", "T", "W", "T", "F", "S", "S")
+                val dayBits = listOf(1, 2, 3, 4, 5, 6, 0)
+                dayLetters.forEachIndexed { index, letter ->
+                    val bit = dayBits[index]
+                    val on = (selectedDays and (1 shl bit)) != 0
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .then(
+                                if (on) Modifier.background(OceanBrush)
+                                else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                            .clickable { selectedDays = selectedDays xor (1 shl bit) }
+                            .testTag("day_chip_$index"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = letter,
+                            fontWeight = FontWeight.Bold,
+                            color = if (on) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Label
             OutlinedTextField(
                 value = label,
                 onValueChange = { label = it },
-                label = { Text("Alarm Label") },
+                label = { Text("Alarm label") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("alarm_label_input"),
+                shape = RoundedCornerShape(20.dp),
                 singleLine = true
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Challenge Type Selection
-            Text("Select Challenge", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(6.dp))
-
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(ChallengeType.values()) { type ->
-                    val isSelected = selectedChallengeType == type
-                    Surface(
-                        onClick = { selectedChallengeType = type },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.testTag("select_challenge_${type.name}")
-                    ) {
-                        Text(
-                            text = type.displayName,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
-                }
+            // Selected challenge row, tap to change
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .clickable { showPicker = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .testTag("open_challenge_picker"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OceanIconTile(icon = challengeIconFor(selectedChallengeType))
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = if (selectedChallengeType == ChallengeType.COMBO) "Combos" else selectedChallengeType.displayName,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "Change",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = OceanCyan
+                )
             }
 
             if (selectedChallengeType == ChallengeType.COMBO) {
@@ -1057,26 +1139,28 @@ fun AddEditAlarmSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Save Action Button
-            Button(
+            // Save action
+            OceanGradientButton(
+                text = "Save alarm",
+                icon = Icons.Default.Check,
                 onClick = {
                     if (needsQr && qrCode.isNullOrBlank()) {
                         Toast.makeText(editorContext, "Please register your QR first", Toast.LENGTH_LONG).show()
-                        return@Button
+                        return@OceanGradientButton
                     }
                     if (needsNfc && nfcTag.isNullOrBlank()) {
                         Toast.makeText(editorContext, "Please register your NFC tag first", Toast.LENGTH_LONG).show()
-                        return@Button
+                        return@OceanGradientButton
                     }
                     if (needsObject && refLabels.isBlank()) {
                         Toast.makeText(editorContext, "Please type which object to show", Toast.LENGTH_LONG).show()
-                        return@Button
+                        return@OceanGradientButton
                     }
                     val entity = AlarmEntity(
                         id = initialAlarm?.id ?: 0,
                         hour = selectedHour,
                         minute = selectedMinute,
-                        label = label.ifBlank { "Aurum Alarm" },
+                        label = label.ifBlank { "Force Alarm" },
                         isEnabled = true,
                         daysOfWeek = selectedDays,
                         challengeType = selectedChallengeType,
@@ -1087,15 +1171,79 @@ fun AddEditAlarmSheet(
                     )
                     onSave(entity)
                 },
+                modifier = Modifier.testTag("save_alarm_button")
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        }
+    }
+}
+
+@Composable
+private fun ChallengePickerContent(
+    selected: ChallengeType,
+    onSelect: (ChallengeType) -> Unit,
+    onConfirm: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .navigationBarsPadding()
+    ) {
+        Text(
+            text = "Pick a challenge",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "It only stops once you are awake",
+            fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ChallengeType.values().forEach { type ->
+            val isSelected = type == selected
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("save_alarm_button"),
-                shape = RoundedCornerShape(14.dp)
+                    .padding(bottom = 10.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .then(
+                        if (isSelected) Modifier.background(OceanBrush)
+                        else Modifier.background(MaterialTheme.colorScheme.surface)
+                    )
+                    .clickable { onSelect(type) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .testTag("select_challenge_${type.name}"),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Save & Schedule Alarm", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                OceanIconTile(icon = challengeIconFor(type), onGradient = isSelected)
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = if (type == ChallengeType.COMBO) "Combos" else type.displayName,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = Color.White
+                    )
+                }
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        OceanGradientButton(text = "Confirm", onClick = onConfirm, modifier = Modifier.testTag("confirm_challenge"))
+        Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
