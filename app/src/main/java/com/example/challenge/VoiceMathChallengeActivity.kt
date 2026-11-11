@@ -263,7 +263,7 @@ class VoiceMathChallengeActivity : BaseChallengeActivity() {
                     .fillMaxWidth()
                     .height(52.dp)
                     .testTag("voice_listen_button"),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(22.dp)
             ) {
                 Text("Tap to speak again", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }

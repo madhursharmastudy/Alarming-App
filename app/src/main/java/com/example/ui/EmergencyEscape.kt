@@ -99,6 +99,7 @@ fun TestExitButton(
     onExit: () -> Unit
 ) {
     if (!TestMode.SHOW_TEST_EXIT) return
+    if (com.example.data.AppSettings.strictMode(androidx.compose.ui.platform.LocalContext.current)) return
     OutlinedButton(
         onClick = onExit,
         modifier = modifier.testTag("test_exit_button")

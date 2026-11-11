@@ -188,9 +188,9 @@ fun ReactionGameScreen(
         // Hits Progress Counter Pill
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                 .padding(horizontal = 14.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -218,7 +218,7 @@ fun ReactionGameScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp)
                     .testTag("reaction_track_card"),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 border = CardDefaults.outlinedCardBorder().copy(
                     brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
@@ -269,7 +269,7 @@ fun ReactionGameScreen(
                 .fillMaxWidth()
                 .height(68.dp)
                 .testTag("tap_reaction_button"),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary

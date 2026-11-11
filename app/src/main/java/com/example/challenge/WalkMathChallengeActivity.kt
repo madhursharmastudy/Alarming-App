@@ -163,7 +163,7 @@ class WalkMathChallengeActivity : BaseChallengeActivity() {
                     .fillMaxWidth()
                     .height(56.dp)
                     .testTag("walk_done_button"),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(22.dp)
             ) {
                 Text("DONE", fontSize = 18.sp, fontWeight = FontWeight.Black)
             }

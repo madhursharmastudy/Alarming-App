@@ -191,7 +191,7 @@ fun TypingChallengeScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = if (isExactMatch) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(28.dp),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = androidx.compose.ui.graphics.SolidColor(
                             when {
@@ -285,7 +285,7 @@ fun TypingChallengeScreen(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     ),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(22.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = if (hasMismatch) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline
@@ -319,7 +319,7 @@ fun TypingChallengeScreen(
                     .fillMaxWidth()
                     .height(48.dp)
                     .testTag("clear_typed_text_button"),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Icon(Icons.Default.Clear, contentDescription = "Clear Input", modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))

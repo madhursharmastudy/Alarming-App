@@ -274,7 +274,7 @@ fun OddOneOutScreen(
         // Round Indicator Pill
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -304,7 +304,7 @@ fun OddOneOutScreen(
             Card(
                 modifier = Modifier
                     .size(cellSize * columns + 16.dp, cellSize * rows + 16.dp),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                 border = CardDefaults.outlinedCardBorder().copy(
                     brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant)
@@ -333,12 +333,12 @@ fun OddOneOutScreen(
                                         modifier = Modifier
                                             .size(cellSize - 6.dp)
                                             .padding(3.dp)
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .clip(RoundedCornerShape(20.dp))
                                             .background(MaterialTheme.colorScheme.surface)
                                             .border(
                                                 1.dp,
                                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                                RoundedCornerShape(12.dp)
+                                                RoundedCornerShape(20.dp)
                                             )
                                             .clickable { onItemTapped(spec) }
                                             .testTag("odd_item_$index"),

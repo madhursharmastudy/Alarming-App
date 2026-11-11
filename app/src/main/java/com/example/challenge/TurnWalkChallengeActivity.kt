@@ -263,7 +263,7 @@ class TurnWalkChallengeActivity : BaseChallengeActivity(), SensorEventListener {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(
                                 if (current) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)

@@ -218,7 +218,7 @@ fun ChargerChallengeScreen(
         // Status Pill
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -286,7 +286,7 @@ fun ChargerChallengeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("charger_action_card"),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = CardDefaults.cardColors(containerColor = themeColor.copy(alpha = 0.15f)),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = androidx.compose.ui.graphics.SolidColor(themeColor)

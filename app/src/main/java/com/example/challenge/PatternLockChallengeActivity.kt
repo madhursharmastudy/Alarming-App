@@ -243,7 +243,7 @@ fun PatternLockScreen(
                     .fillMaxWidth()
                     .height(72.dp)
                     .testTag("pattern_reference_card"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ),
@@ -277,12 +277,12 @@ fun PatternLockScreen(
                             .size(62.dp)
                             .background(
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                RoundedCornerShape(8.dp)
+                                RoundedCornerShape(16.dp)
                             )
                             .border(
                                 1.dp,
                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                RoundedCornerShape(8.dp)
+                                RoundedCornerShape(16.dp)
                             )
                             .padding(4.dp),
                         contentAlignment = Alignment.Center
@@ -375,7 +375,7 @@ fun PatternLockScreen(
                         touchPoint = null
                         onClear()
                     },
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .height(34.dp)
                         .testTag("clear_pattern_button")

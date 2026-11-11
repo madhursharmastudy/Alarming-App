@@ -178,7 +178,7 @@ class ShakeChallengeActivity : BaseChallengeActivity(), SensorEventListener {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(28.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
@@ -247,7 +247,7 @@ class ShakeChallengeActivity : BaseChallengeActivity(), SensorEventListener {
                     .fillMaxWidth()
                     .height(52.dp)
                     .testTag("shake_phone_action_button"),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(22.dp)
             ) {
                 Icon(Icons.Default.Vibration, contentDescription = "Shake")
                 Spacer(modifier = Modifier.width(8.dp))

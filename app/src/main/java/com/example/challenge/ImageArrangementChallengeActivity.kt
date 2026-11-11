@@ -447,9 +447,9 @@ fun JigsawScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -579,9 +579,9 @@ fun JigsawScreen(
                     .fillMaxWidth()
                     .height(trayH)
                     .onGloballyPositioned { geo.trayOrigin = it.positionInRoot() }
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
                     .testTag("jigsaw_tray")
             ) {
                 trayPieces.forEachIndexed { i, pieceId ->
@@ -654,8 +654,8 @@ fun JigsawScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(cols.toFloat() / rows.toFloat())
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)),
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp)),
                                 contentScale = ContentScale.Crop
                             )
                         }
@@ -666,7 +666,7 @@ fun JigsawScreen(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Text("Close Preview", fontWeight = FontWeight.Bold)
                         }

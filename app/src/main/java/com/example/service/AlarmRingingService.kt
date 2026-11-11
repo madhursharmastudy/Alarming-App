@@ -10,6 +10,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import com.example.data.AppSettings
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -299,9 +300,9 @@ class AlarmRingingService : Service() {
         try {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
             val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            val minimum = (max * 0.7f).toInt().coerceAtLeast(1)
-            if (audioManager.getStreamVolume(AudioManager.STREAM_ALARM) < minimum) {
-                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, minimum, 0)
+            val target = (max * AppSettings.volumePercent(applicationContext) / 100f).toInt().coerceAtLeast(1)
+            if (audioManager.getStreamVolume(AudioManager.STREAM_ALARM) != target) {
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, target, 0)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -313,13 +314,7 @@ class AlarmRingingService : Service() {
         ensureAlarmVolume()
 
         try {
-            var alarmUri: Uri? = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            if (alarmUri == null) {
-                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            }
-            if (alarmUri == null) {
-                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            }
+            val alarmUri: Uri? = AppSettings.soundUri(applicationContext)
 
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(applicationContext, alarmUri!!)
@@ -352,8 +347,8 @@ class AlarmRingingService : Service() {
             e.printStackTrace()
         }
 
-        // Start vibration
-        try {
+        // Start vibration (can be turned off in Settings)
+        if (AppSettings.vibrationEnabled(applicationContext)) try {
             val pattern = longArrayOf(0, 800, 400, 800, 400, 1200)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))

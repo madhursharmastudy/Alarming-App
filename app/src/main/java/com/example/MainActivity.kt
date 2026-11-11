@@ -162,6 +162,10 @@ import com.example.ui.WakeStatsCard
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import com.example.data.AppSettings
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Home
@@ -470,7 +474,11 @@ fun MainTabsScreen(
                                 repository.deleteAlarm(alarm)
                             }
                         },
-                        onTestRing = { onTestAlarmRing(alarm) }
+                        onTestRing = { onTestAlarmRing(alarm) },
+                        onClick = {
+                            alarmToEdit = alarm
+                            showAddSheet = true
+                        }
                     )
                 }
             }
@@ -629,6 +637,11 @@ private fun SettingsTab(
     val context = LocalContext.current
     val themeMode by ThemePreferences.themeModeFlow.collectAsState()
     var showTestTools by remember { mutableStateOf(false) }
+    var volume by remember { mutableStateOf(AppSettings.volumePercent(context).toFloat()) }
+    var soundChoice by remember { mutableStateOf(AppSettings.soundChoice(context)) }
+    var soundMenuOpen by remember { mutableStateOf(false) }
+    var strictMode by remember { mutableStateOf(AppSettings.strictMode(context)) }
+    var vibration by remember { mutableStateOf(AppSettings.vibrationEnabled(context)) }
 
     LazyColumn(
         modifier = Modifier
@@ -645,6 +658,105 @@ private fun SettingsTab(
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
             )
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OceanIconTile(icon = Icons.Default.VolumeUp)
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Text(
+                        text = "Volume",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "${volume.toInt()}%",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Slider(
+                    value = volume,
+                    onValueChange = { volume = it },
+                    onValueChangeFinished = { AppSettings.setVolumePercent(context, volume.toInt()) },
+                    valueRange = 40f..100f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = OceanCyan,
+                        activeTrackColor = OceanCyan,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    modifier = Modifier.testTag("setting_volume")
+                )
+            }
+        }
+        item {
+            Box {
+                SettingCardRow(
+                    icon = Icons.Default.MusicNote,
+                    title = "Sound",
+                    modifier = Modifier.clickable { soundMenuOpen = true }.testTag("setting_sound")
+                ) {
+                    Text(
+                        text = AppSettings.soundNames[soundChoice],
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                DropdownMenu(expanded = soundMenuOpen, onDismissRequest = { soundMenuOpen = false }) {
+                    AppSettings.soundNames.forEachIndexed { index, name ->
+                        DropdownMenuItem(
+                            text = { Text(name) },
+                            onClick = {
+                                soundChoice = index
+                                AppSettings.setSoundChoice(context, index)
+                                soundMenuOpen = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            SettingCardRow(
+                icon = Icons.Default.Lock,
+                title = "Strict mode",
+                subtitle = "Hides the test exit button"
+            ) {
+                Switch(
+                    checked = strictMode,
+                    onCheckedChange = {
+                        strictMode = it
+                        AppSettings.setStrictMode(context, it)
+                    },
+                    colors = oceanSwitchColors(),
+                    modifier = Modifier.testTag("setting_strict")
+                )
+            }
+        }
+        item {
+            SettingCardRow(
+                icon = Icons.Default.Vibration,
+                title = "Vibration"
+            ) {
+                Switch(
+                    checked = vibration,
+                    onCheckedChange = {
+                        vibration = it
+                        AppSettings.setVibrationEnabled(context, it)
+                    },
+                    colors = oceanSwitchColors(),
+                    modifier = Modifier.testTag("setting_vibration")
+                )
+            }
         }
         item {
             Text(
@@ -717,6 +829,43 @@ private fun SettingsTab(
             }
         }
         item { Spacer(modifier = Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun SettingCardRow(
+    icon: ImageVector,
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    trailing: @Composable () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OceanIconTile(icon = icon)
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        trailing()
     }
 }
 
@@ -875,7 +1024,8 @@ fun AlarmCardItem(
     alarm: AlarmEntity,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
-    onTestRing: () -> Unit
+    onTestRing: () -> Unit,
+    onClick: () -> Unit = {}
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val dim = if (alarm.isEnabled) 1f else 0.55f
@@ -885,6 +1035,7 @@ fun AlarmCardItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
             .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

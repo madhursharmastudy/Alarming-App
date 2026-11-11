@@ -273,9 +273,9 @@ fun CardArrangementScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(30.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
                     .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -350,9 +350,9 @@ fun CardArrangementScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(rowH)
-                                .clip(RoundedCornerShape(10.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
                                 .padding(horizontal = 6.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -466,7 +466,7 @@ fun CardArrangementScreen(
                     .fillMaxWidth()
                     .height(44.dp)
                     .testTag("card_task_completed_button"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
