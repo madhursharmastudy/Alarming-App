@@ -136,7 +136,6 @@ import android.app.Activity
 import android.content.ContextWrapper
 import android.nfc.NfcAdapter
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.DisposableEffect
 import com.example.challenge.BaseChallengeActivity
 import com.example.challenge.CardArrangementChallengeActivity
@@ -166,12 +165,10 @@ import java.util.Calendar
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.ui.graphics.Color
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.ThemePreferences
 import androidx.compose.foundation.layout.PaddingValues
@@ -425,7 +422,8 @@ fun MainTabsScreen(
             StatsTab(padding = innerPadding)
         } else if (tab == 2) {
             SettingsTab(padding = innerPadding, onTestChallenge = onTestChallenge, onTestCombo = onTestCombo)
-        } else LazyColumn(
+        } else {
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
@@ -478,6 +476,7 @@ fun MainTabsScreen(
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
         }
     }
 
