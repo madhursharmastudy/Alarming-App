@@ -197,7 +197,7 @@ fun ReactionGameScreen(
             Text(
                 text = "Target: $currentHits of $targetHits Consecutive Hits",
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
         }
@@ -233,8 +233,8 @@ fun ReactionGameScreen(
                 ) {
                     Text(
                         text = "TARGET HIT ZONE",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.sp
                     )
@@ -290,7 +290,7 @@ fun ReactionGameScreen(
                 Text(
                     text = "TAP NOW!",
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
             }

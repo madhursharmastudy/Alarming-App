@@ -297,9 +297,9 @@ fun ChargerChallengeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "REQUIRED PHYSICAL ACTION",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
+                            text = "Do this now",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             color = themeColor,
                             letterSpacing = 1.sp
                         )
@@ -307,9 +307,9 @@ fun ChargerChallengeScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = if (isActionUnplug) "UNPLUG THE CHARGER" else "PLUG IN THE CHARGER",
+                            text = if (isActionUnplug) "Unplug the charger" else "Plug in the charger",
                             fontSize = 22.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
@@ -340,7 +340,7 @@ fun ChargerChallengeScreen(
         ) {
             Text(
                 text = "Alarm automatically dismisses the instant state changes",
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center

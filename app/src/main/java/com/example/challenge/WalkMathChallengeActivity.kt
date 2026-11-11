@@ -130,14 +130,14 @@ class WalkMathChallengeActivity : BaseChallengeActivity() {
             )
 
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Text(
                     text = question,
                     fontSize = 44.sp,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp)
                 )
             }
@@ -146,12 +146,12 @@ class WalkMathChallengeActivity : BaseChallengeActivity() {
                 Text(
                     text = "Steps counted: $steps",
                     fontSize = 28.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "Hold the phone and really walk. Shaking it does not count.",
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -165,7 +165,7 @@ class WalkMathChallengeActivity : BaseChallengeActivity() {
                     .testTag("walk_done_button"),
                 shape = RoundedCornerShape(22.dp)
             ) {
-                Text("DONE", fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("DONE", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

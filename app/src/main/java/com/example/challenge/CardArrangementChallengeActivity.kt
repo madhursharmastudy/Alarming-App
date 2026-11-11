@@ -287,14 +287,14 @@ fun CardArrangementScreen(
                         "Goal: suit rows, left to right: " + expectedRanks.joinToString(" ") { it.label }
                     },
                     maxLines = 1,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "Correct: $correctCount / $totalCount",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -368,7 +368,7 @@ fun CardArrangementScreen(
                                 Text(
                                     text = rowSuit.symbol,
                                     fontSize = 18.sp,
-                                    fontWeight = FontWeight.Black,
+                                    fontWeight = FontWeight.Bold,
                                     color = rowSuit.color
                                 )
                             }
@@ -437,13 +437,13 @@ fun CardArrangementScreen(
                             Text(
                                 text = dragCard.rank.label,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 color = dragCard.suit.color
                             )
                             Text(
                                 text = dragCard.suit.symbol,
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 color = dragCard.suit.color
                             )
                         }
@@ -477,7 +477,7 @@ fun CardArrangementScreen(
                 Text(
                     text = "TASK COMPLETED",
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
             }
@@ -519,7 +519,7 @@ fun PlayingCardView(
             Text(
                 text = card.rank.label,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
                 color = card.suit.color,
                 lineHeight = 13.sp,
                 textAlign = TextAlign.Center
@@ -527,7 +527,7 @@ fun PlayingCardView(
             Text(
                 text = card.suit.symbol,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
                 color = card.suit.color,
                 lineHeight = 14.sp,
                 textAlign = TextAlign.Center

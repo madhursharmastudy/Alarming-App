@@ -221,7 +221,7 @@ class TurnWalkChallengeActivity : BaseChallengeActivity(), SensorEventListener {
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
@@ -233,16 +233,16 @@ class TurnWalkChallengeActivity : BaseChallengeActivity(), SensorEventListener {
                     Text(
                         text = bigText,
                         fontSize = 30.sp,
-                        fontWeight = FontWeight.Black,
+                        fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = subText,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     LinearProgressIndicator(

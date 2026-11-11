@@ -261,13 +261,13 @@ fun PatternLockScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "TARGET PATTERN (${targetPattern.size} DOTS)",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = "Grid: ${cols}×${rows} • Connect 1 → ${targetPattern.size}",
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -382,7 +382,7 @@ fun PatternLockScreen(
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Clear", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Clear", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Clear", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

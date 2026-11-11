@@ -729,7 +729,7 @@ private fun SettingsTab(
             SettingCardRow(
                 icon = Icons.Default.Lock,
                 title = "Strict mode",
-                subtitle = "Hides the test exit button"
+                subtitle = "Hides the quick exit button (test)"
             ) {
                 Switch(
                     checked = strictMode,

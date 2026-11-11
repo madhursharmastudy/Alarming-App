@@ -177,7 +177,7 @@ class ShakeChallengeActivity : BaseChallengeActivity(), SensorEventListener {
             // Stage Info Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(28.dp)
             ) {
                 Column(
@@ -185,16 +185,16 @@ class ShakeChallengeActivity : BaseChallengeActivity(), SensorEventListener {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Stage $stage: Shake Physical Energy",
+                        text = "Shake your phone",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Vigorously shake your phone until the counter reaches target!",
+                        text = "Shake hard until the counter reaches the target.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -228,7 +228,7 @@ class ShakeChallengeActivity : BaseChallengeActivity(), SensorEventListener {
                     Text(
                         text = "$current / $target",
                         style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(

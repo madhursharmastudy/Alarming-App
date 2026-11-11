@@ -482,7 +482,7 @@ fun JigsawScreen(
                     Column {
                         Text(
                             text = imageTitle,
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1
@@ -502,8 +502,8 @@ fun JigsawScreen(
 
                 Text(
                     text = "Placed: ${lockedPieces.size} / $totalPieces",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -643,7 +643,7 @@ fun JigsawScreen(
                         Text(
                             text = "Reference: $imageTitle",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(12.dp))

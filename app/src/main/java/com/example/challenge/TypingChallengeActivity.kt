@@ -210,9 +210,9 @@ fun TypingChallengeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "TARGET TEXT (TYPE EXACTLY AS SHOWN)",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            text = "Type exactly this text",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 1.sp
                         )
@@ -247,7 +247,7 @@ fun TypingChallengeScreen(
                                         text = if (char == ' ') " " else char.toString(),
                                         fontSize = fontSize,
                                         fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.ExtraBold,
+                                        fontWeight = FontWeight.Bold,
                                         color = charColor,
                                         textAlign = TextAlign.Center
                                     )

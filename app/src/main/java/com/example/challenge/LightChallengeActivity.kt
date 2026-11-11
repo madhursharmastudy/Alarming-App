@@ -185,7 +185,7 @@ class LightChallengeActivity : BaseChallengeActivity(), SensorEventListener {
                 Text(
                     text = "Light now: ${lux.toInt()} lux",
                     fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
@@ -211,7 +211,7 @@ class LightChallengeActivity : BaseChallengeActivity(), SensorEventListener {
                 )
                 Text(
                     text = "hold",
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

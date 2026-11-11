@@ -50,13 +50,17 @@ fun EmergencyEscapeButton(
     var remaining by remember { mutableIntStateOf(EmergencyEscape.remaining(context)) }
     var showConfirm by remember { mutableStateOf(false) }
 
+    val unlimited = TestMode.UNLIMITED_EMERGENCY_EXIT
+
     TextButton(
-        onClick = { if (remaining > 0) showConfirm = true },
-        enabled = remaining > 0,
+        onClick = { if (unlimited || remaining > 0) showConfirm = true },
+        enabled = unlimited || remaining > 0,
         modifier = modifier.testTag("emergency_escape_button")
     ) {
         Text(
-            text = if (remaining > 0) {
+            text = if (unlimited) {
+                "Emergency exit"
+            } else if (remaining > 0) {
                 "Emergency exit ($remaining left)"
             } else {
                 "No emergency exits left"
@@ -71,12 +75,12 @@ fun EmergencyEscapeButton(
             onDismissRequest = { showConfirm = false },
             title = { Text("Emergency escape") },
             text = {
-                Text("This stops the alarm without finishing the challenge. Use it only if you are unwell or something urgent happened. You have $remaining left this week.")
+                Text("This stops the alarm without finishing the challenge. Use it only if you are unwell or something urgent happened." + if (unlimited) "" else " You have $remaining left this week.")
             },
             confirmButton = {
                 TextButton(onClick = {
                     showConfirm = false
-                    EmergencyEscape.record(context)
+                    if (!unlimited) EmergencyEscape.record(context)
                     remaining = EmergencyEscape.remaining(context)
                     onEscape()
                 }) { Text("Stop alarm") }
@@ -91,6 +95,9 @@ fun EmergencyEscapeButton(
 /** TEMPORARY for testing: set SHOW_TEST_EXIT to false (or delete) before real use. */
 object TestMode {
     const val SHOW_TEST_EXIT = true
+
+    /** TEMPORARY for testing: emergency exit has no weekly limit. Set to false to bring back the limit. */
+    const val UNLIMITED_EMERGENCY_EXIT = true
 }
 
 @Composable
@@ -104,6 +111,6 @@ fun TestExitButton(
         onClick = onExit,
         modifier = modifier.testTag("test_exit_button")
     ) {
-        Text("TEST: Exit puzzle", fontSize = 12.sp)
+        Text("Quick exit (test)", fontSize = 12.sp)
     }
 }
