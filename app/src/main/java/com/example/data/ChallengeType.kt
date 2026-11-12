@@ -25,5 +25,7 @@ enum class ChallengeType(val displayName: String, val iconDescription: String) {
     HIDDEN_PATTERN("Hidden Pattern", "Memorize the dots, then tap them from memory"),
     COLOR_TRAP("Color Trap", "Pick the ink colour, not the word"),
     NUMBER_GRID("Number Grid", "Tap numbers in order on a shuffled grid"),
+    FOLLOW_DOT("Follow the Dot", "Track the glowing dot while all dots move"),
+    MIRROR_PATTERN("Mirror Pattern", "Tap the mirror image of the lit cells"),
     COMBO("Combos", "Several tasks in a row: body, mind, place")
 }

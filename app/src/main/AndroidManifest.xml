@@ -231,6 +231,24 @@
             android:theme="@style/Theme.MyApplication" />
 
         <activity
+            android:name=".challenge.FollowDotChallengeActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.MyApplication" />
+
+        <activity
+            android:name=".challenge.MirrorPatternChallengeActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.MyApplication" />
+
+        <activity
             android:name=".challenge.ReactionGameChallengeActivity"
             android:exported="false"
             android:showWhenLocked="true"

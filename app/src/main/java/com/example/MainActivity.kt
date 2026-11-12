@@ -162,6 +162,8 @@ import com.example.ui.WakeStatsCard
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.material.icons.filled.TrackChanges
+import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -286,6 +288,8 @@ private fun challengeIconFor(type: ChallengeType): ImageVector = when (type) {
     ChallengeType.HIDDEN_PATTERN -> Icons.Default.VisibilityOff
     ChallengeType.COLOR_TRAP -> Icons.Default.Palette
     ChallengeType.NUMBER_GRID -> Icons.Default.Apps
+    ChallengeType.FOLLOW_DOT -> Icons.Default.TrackChanges
+    ChallengeType.MIRROR_PATTERN -> Icons.Default.Flip
     ChallengeType.COMBO -> Icons.Default.Bolt
 }
 
@@ -1008,6 +1012,8 @@ fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
         ChallengeType.HIDDEN_PATTERN -> Icons.Default.VisibilityOff
         ChallengeType.COLOR_TRAP -> Icons.Default.Palette
         ChallengeType.NUMBER_GRID -> Icons.Default.Apps
+        ChallengeType.FOLLOW_DOT -> Icons.Default.TrackChanges
+        ChallengeType.MIRROR_PATTERN -> Icons.Default.Flip
         ChallengeType.COMBO -> Icons.Default.Bolt
     }
 

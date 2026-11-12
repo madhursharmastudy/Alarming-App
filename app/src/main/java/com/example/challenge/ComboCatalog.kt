@@ -77,6 +77,8 @@ object ComboCatalog {
         ChallengeType.CARD_ARRANGEMENT -> CardArrangementChallengeActivity::class.java
         ChallengeType.PATTERN_LOCK -> PatternLockChallengeActivity::class.java
         ChallengeType.ODD_ONE_OUT -> OddOneOutChallengeActivity::class.java
+        ChallengeType.FOLLOW_DOT -> FollowDotChallengeActivity::class.java
+        ChallengeType.MIRROR_PATTERN -> MirrorPatternChallengeActivity::class.java
         ChallengeType.SNAKE_BALLS -> SnakeBallsChallengeActivity::class.java
         ChallengeType.LIGHT_SEQUENCE -> LightSequenceChallengeActivity::class.java
         ChallengeType.HIDDEN_PATTERN -> HiddenPatternChallengeActivity::class.java
