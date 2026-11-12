@@ -16,7 +16,7 @@ import kotlin.math.sqrt
  * Counts real walking steps.
  *  - Uses the phone's step sensor when the "Physical activity" permission is granted,
  *    otherwise a stricter accelerometer detector.
- *  - Ignores steps right after a violent jerk (hand shaking) and steps closer than 0.35 s,
+ *  - Ignores steps right after a violent jerk (hand shaking) and steps closer than 0.3 s,
  *    so shaking the phone up and down counts much less than walking.
  */
 class StepDetector(
@@ -33,8 +33,11 @@ class StepDetector(
 
     private var lastStepTime = 0L
     private var lastJerkTime = 0L
-    private var lastMagnitude = 0.0
     private var lastPeakTime = 0L
+    private var lastSensorStepTime = 0L
+    private var baseline = 9.81
+    private var smooth = 0.0
+    private var previousSmooth = 0.0
 
     /** true when the phone's own step sensor is used (more reliable than the accelerometer). */
     val usesStepSensor: Boolean get() = stepSensor != null
@@ -59,24 +62,34 @@ class StepDetector(
                 val magnitude = sqrt((x * x + y * y + z * z).toDouble())
 
                 // A violent jerk is shaking, not walking
-                if (abs(magnitude - 9.81) > 13.0) lastJerkTime = now
+                if (abs(magnitude - 9.81) > 15.0) lastJerkTime = now
 
-                if (stepSensor == null) {
-                    // Accelerometer only: count a rising peak, at most about 3 steps per second
-                    if (magnitude - lastMagnitude > 3.0 && now - lastPeakTime > 380) {
-                        lastPeakTime = now
-                        acceptStep(now)
-                    }
+                // Slow baseline (gravity) and a lightly smoothed walking signal
+                baseline = baseline * 0.9 + magnitude * 0.1
+                smooth = smooth * 0.6 + (magnitude - baseline) * 0.4
+
+                // A step = the signal rises above the threshold (about 3 steps per second at most)
+                val risingEdge = smooth > 1.1 && previousSmooth <= 1.1
+                previousSmooth = smooth
+
+                // The accelerometer is the backup: it counts only while the phone's step sensor is
+                // silent (many phones need 6-10 steps before their step sensor starts reporting).
+                val sensorIsSilent = stepSensor == null || now - lastSensorStepTime > 1500
+                if (risingEdge && sensorIsSilent && now - lastPeakTime > 300) {
+                    lastPeakTime = now
+                    acceptStep(now)
                 }
-                lastMagnitude = magnitude
             }
-            Sensor.TYPE_STEP_DETECTOR -> acceptStep(now)
+            Sensor.TYPE_STEP_DETECTOR -> {
+                lastSensorStepTime = now
+                acceptStep(now)
+            }
         }
     }
 
     private fun acceptStep(now: Long) {
-        if (now - lastJerkTime < 700) return
-        if (now - lastStepTime < 350) return
+        if (now - lastJerkTime < 400) return
+        if (now - lastStepTime < 300) return
         lastStepTime = now
         onStep()
     }

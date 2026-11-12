@@ -79,6 +79,16 @@ class TurnWalkChallengeActivity : BaseChallengeActivity(), SensorEventListener {
             return
         }
         detector = StepDetector(this) { onStepWalked() }
+
+        detector?.let {
+            if (!it.usesStepSensor) {
+                android.widget.Toast.makeText(
+                    this,
+                    "Tip: allow Physical activity in the setup card for the most accurate step counting",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     override fun onResume() {

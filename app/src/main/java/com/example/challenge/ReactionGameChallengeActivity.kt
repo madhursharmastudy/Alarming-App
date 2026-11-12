@@ -1,8 +1,10 @@
 package com.example.challenge
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import com.example.ui.theme.OceanBrush
 import android.os.SystemClock
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +39,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -268,13 +269,14 @@ fun ReactionGameScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(68.dp)
+                .background(OceanBrush, RoundedCornerShape(28.dp))
                 .testTag("tap_reaction_button"),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = Color.Transparent,
+                contentColor = Color.White
             ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            elevation = null
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -284,14 +286,14 @@ fun ReactionGameScreen(
                     imageVector = Icons.Default.FlashOn,
                     contentDescription = null,
                     modifier = Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Color.White
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "TAP NOW!",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = Color.White
                 )
             }
         }

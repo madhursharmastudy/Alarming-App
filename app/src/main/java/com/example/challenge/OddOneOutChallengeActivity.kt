@@ -137,7 +137,7 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
                 val otherShapes = allShapes.filter { it != baseShape }
                 val oddShape = otherShapes.random()
 
-                val baseColor = listOf(Color(0xFF3B82F6), Color(0xFF10B981), Color(0xFF8B5CF6)).random()
+                val baseColor = listOf(Color(0xFF3B82F6), Color(0xFF10B981), Color(0xFF0EA5E9)).random()
                 val oddColor = listOf(Color(0xFFEF4444), Color(0xFFF59E0B), Color(0xFFEC4899)).random()
 
                 List(count) { idx ->
@@ -154,7 +154,7 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
                 if (pickColorDiff) {
                     val shape = allShapes.random()
                     val baseColor = listOf(Color(0xFF2563EB), Color(0xFF059669), Color(0xFFD97706)).random()
-                    val oddColor = listOf(Color(0xFFEF4444), Color(0xFF8B5CF6), Color(0xFF06B6D4)).random()
+                    val oddColor = listOf(Color(0xFFEF4444), Color(0xFFFB7185), Color(0xFF06B6D4)).random()
 
                     List(count) { idx ->
                         if (idx == oddIndex) {
@@ -164,7 +164,7 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
                         }
                     }
                 } else {
-                    val color = listOf(Color(0xFF6366F1), Color(0xFF14B8A6), Color(0xFFF97316)).random()
+                    val color = listOf(Color(0xFF38BDF8), Color(0xFF14B8A6), Color(0xFFF97316)).random()
                     val baseShape = allShapes.random()
                     val oddShape = allShapes.filter { it != baseShape }.random()
 
@@ -188,7 +188,7 @@ class OddOneOutChallengeActivity : BaseChallengeActivity() {
                         Color(0xFF2563EB) to Color(0xFF1D4ED8), // Subtle Blues
                         Color(0xFF059669) to Color(0xFF047857), // Subtle Emeralds
                         Color(0xFFD97706) to Color(0xFFB45309), // Subtle Ambers
-                        Color(0xFF7C3AED) to Color(0xFF6D28D9)  // Subtle Purples
+                        Color(0xFF0EA5E9) to Color(0xFF0284C7)  // Subtle Sky blues
                     ).random()
 
                     List(count) { idx ->

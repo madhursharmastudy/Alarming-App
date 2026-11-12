@@ -98,9 +98,9 @@ class PatternLockChallengeActivity : BaseChallengeActivity() {
 
     private fun setupPattern(stage: Int) {
         val (cols, rows, patternLen) = when (stage) {
-            1 -> Triple(2, 3, 4) // Low: 2x3 = 6 dots, length 4
-            2 -> Triple(3, 3, 6) // Moderate: 3x3 = 9 dots, length 6
-            3 -> Triple(3, 4, 8) // Difficult: 3x4 = 12 dots, length 8
+            1 -> Triple(2, 3, 5) // Low: 2x3 = 6 dots, length 5
+            2 -> Triple(3, 3, 7) // Moderate: 3x3 = 9 dots, length 7
+            3 -> Triple(3, 4, 10) // Difficult: 3x4 = 12 dots, length 10
             else -> Triple(2, 3, 4)
         }
 
@@ -215,6 +215,14 @@ fun PatternLockScreen(
     var touchPoint by remember { mutableStateOf<Offset?>(null) }
     val activeDrawnPattern = remember { mutableStateListOf<Int>() }
 
+    // The reference is only shown for a few seconds, then it is hidden: draw it from memory
+    var referenceVisible by remember(targetPattern) { mutableStateOf(true) }
+    LaunchedEffect(targetPattern) {
+        referenceVisible = true
+        kotlinx.coroutines.delay(if (currentStage == 1) 6000L else if (currentStage == 2) 4000L else 3000L)
+        referenceVisible = false
+    }
+
     LaunchedEffect(userPattern) {
         if (userPattern.isEmpty()) {
             activeDrawnPattern.clear()
@@ -266,7 +274,7 @@ fun PatternLockScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Grid: ${cols}×${rows} • Connect 1 → ${targetPattern.size}",
+                            text = if (referenceVisible) "Grid: ${cols}×${rows} • Memorize it, it will hide" else "Hidden! Draw the pattern from memory",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -287,12 +295,21 @@ fun PatternLockScreen(
                             .padding(4.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        MiniPatternReferenceCanvas(
-                            cols = cols,
-                            rows = rows,
-                            targetPattern = targetPattern,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        if (referenceVisible) {
+                            MiniPatternReferenceCanvas(
+                                cols = cols,
+                                rows = rows,
+                                targetPattern = targetPattern,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = "?",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }

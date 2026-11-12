@@ -43,11 +43,11 @@ class ObjectPhotoChallengeActivity : BaseChallengeActivity() {
     private var labeler: ImageLabeler? = null
 
     private val defaultTargets = listOf(
-        "a bottle" to listOf("bottle"),
-        "a cup or mug" to listOf("cup", "mug", "drinkware", "tableware"),
+        "a bottle" to listOf("bottle", "water bottle", "plastic bottle", "glass bottle", "drinkware"),
+        "a cup or mug" to listOf("cup", "mug", "coffee cup", "teacup"),
         "a shoe" to listOf("shoe", "footwear", "sneaker", "sandal"),
         "a plant" to listOf("plant", "flower", "leaf"),
-        "a chair" to listOf("chair", "furniture"),
+        "a laptop" to listOf("laptop", "netbook", "personal computer", "computer"),
         "a book" to listOf("book", "paper"),
         "a bag" to listOf("bag", "handbag", "backpack", "luggage")
     )
@@ -67,7 +67,7 @@ class ObjectPhotoChallengeActivity : BaseChallengeActivity() {
             return
         }
         labeler = ImageLabeling.getClient(
-            ImageLabelerOptions.Builder().setConfidenceThreshold(0.6f).build()
+            ImageLabelerOptions.Builder().setConfidenceThreshold(0.35f).build()
         )
     }
 
@@ -119,7 +119,7 @@ class ObjectPhotoChallengeActivity : BaseChallengeActivity() {
 
     private fun handleLabels(labels: List<ImageLabel>) {
         if (finished || isCompletedState.value) return
-        seenState.value = if (labels.isEmpty()) "" else "I see: " + labels.take(3).joinToString(", ") { it.text }
+        seenState.value = if (labels.isEmpty()) "" else "I see: " + labels.take(4).joinToString(", ") { it.text }
 
         val match = labels.any { label ->
             val text = label.text.lowercase()

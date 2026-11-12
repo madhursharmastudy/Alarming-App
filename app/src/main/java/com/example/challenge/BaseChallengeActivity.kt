@@ -590,13 +590,15 @@ fun ChallengeHeader(
                 Button(
                     onClick = onReSilence,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        containerColor = Color.Transparent,
+                        contentColor = Color.White
                     ),
+                    elevation = null,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .height(32.dp)
                         .widthIn(min = 96.dp)
+                        .background(OceanBrush, RoundedCornerShape(12.dp))
                         .testTag("re_silence_button")
                 ) {
                     Icon(Icons.Default.VolumeOff, contentDescription = "Silence", modifier = Modifier.size(13.dp))
