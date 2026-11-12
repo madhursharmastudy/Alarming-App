@@ -77,6 +77,11 @@ object ComboCatalog {
         ChallengeType.CARD_ARRANGEMENT -> CardArrangementChallengeActivity::class.java
         ChallengeType.PATTERN_LOCK -> PatternLockChallengeActivity::class.java
         ChallengeType.ODD_ONE_OUT -> OddOneOutChallengeActivity::class.java
+        ChallengeType.SNAKE_BALLS -> SnakeBallsChallengeActivity::class.java
+        ChallengeType.LIGHT_SEQUENCE -> LightSequenceChallengeActivity::class.java
+        ChallengeType.HIDDEN_PATTERN -> HiddenPatternChallengeActivity::class.java
+        ChallengeType.COLOR_TRAP -> ColorTrapChallengeActivity::class.java
+        ChallengeType.NUMBER_GRID -> NumberGridChallengeActivity::class.java
         ChallengeType.REACTION_GAME -> ReactionGameChallengeActivity::class.java
         ChallengeType.MATH -> MathChallengeActivity::class.java
         ChallengeType.SHAKE -> ShakeChallengeActivity::class.java

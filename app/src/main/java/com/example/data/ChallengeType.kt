@@ -20,5 +20,10 @@ enum class ChallengeType(val displayName: String, val iconDescription: String) {
     LIGHT("Find the Light", "Bring the phone to bright light"),
     OBJECT_PHOTO("Object Photo", "Show a chosen object to the camera"),
     NFC_TAP("NFC Tag Tap", "Touch your NFC tag with the phone"),
+    SNAKE_BALLS("Snake & Balls", "Steer the snake to collect the target balls"),
+    LIGHT_SEQUENCE("Light Sequence", "Repeat the glowing light order"),
+    HIDDEN_PATTERN("Hidden Pattern", "Memorize the dots, then tap them from memory"),
+    COLOR_TRAP("Color Trap", "Pick the ink colour, not the word"),
+    NUMBER_GRID("Number Grid", "Tap numbers in order on a shuffled grid"),
     COMBO("Combos", "Several tasks in a row: body, mind, place")
 }

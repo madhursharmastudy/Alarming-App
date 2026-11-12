@@ -162,6 +162,11 @@ import com.example.ui.WakeStatsCard
 import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -276,6 +281,11 @@ private fun challengeIconFor(type: ChallengeType): ImageVector = when (type) {
     ChallengeType.LIGHT -> Icons.Default.LightMode
     ChallengeType.OBJECT_PHOTO -> Icons.Default.CameraAlt
     ChallengeType.NFC_TAP -> Icons.Default.Nfc
+    ChallengeType.SNAKE_BALLS -> Icons.Default.SportsEsports
+    ChallengeType.LIGHT_SEQUENCE -> Icons.Default.Lightbulb
+    ChallengeType.HIDDEN_PATTERN -> Icons.Default.VisibilityOff
+    ChallengeType.COLOR_TRAP -> Icons.Default.Palette
+    ChallengeType.NUMBER_GRID -> Icons.Default.Apps
     ChallengeType.COMBO -> Icons.Default.Bolt
 }
 
@@ -993,6 +1003,11 @@ fun ChallengeChip(type: ChallengeType, onClick: () -> Unit) {
         ChallengeType.LIGHT -> Icons.Default.LightMode
         ChallengeType.OBJECT_PHOTO -> Icons.Default.CameraAlt
         ChallengeType.NFC_TAP -> Icons.Default.Nfc
+        ChallengeType.SNAKE_BALLS -> Icons.Default.SportsEsports
+        ChallengeType.LIGHT_SEQUENCE -> Icons.Default.Lightbulb
+        ChallengeType.HIDDEN_PATTERN -> Icons.Default.VisibilityOff
+        ChallengeType.COLOR_TRAP -> Icons.Default.Palette
+        ChallengeType.NUMBER_GRID -> Icons.Default.Apps
         ChallengeType.COMBO -> Icons.Default.Bolt
     }
 
